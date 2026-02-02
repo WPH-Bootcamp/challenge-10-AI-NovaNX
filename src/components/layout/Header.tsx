@@ -12,21 +12,45 @@ import { ApiError } from "@/lib/api";
 export function Header() {
   const token = useAuthToken();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  useEffect(() => {
+    queueMicrotask(() => setHasHydrated(true));
+  }, []);
 
   useEffect(() => {
     if (!token) return;
 
     let cancelled = false;
 
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[Header] token present, fetching /users/me");
+    }
+
     getMyProfile(token)
       .then((profile) => {
         if (cancelled) return;
+
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[Header] /users/me profile received", {
+            id: profile.id,
+            name: profile.name,
+            email: profile.email,
+            avatarUrl: profile.avatarUrl,
+          });
+        }
+
         setAvatarUrl(
           profile.avatarUrl ? resolveBackendUrl(profile.avatarUrl) : null,
         );
       })
       .catch((err) => {
         if (cancelled) return;
+
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[Header] /users/me failed", err);
+        }
+
         if (err instanceof ApiError && err.status === 401) {
           clearAuthToken();
           return;
@@ -39,9 +63,13 @@ export function Header() {
     };
   }, [token]);
 
-  const isAuthed = Boolean(token);
+  const isAuthed = hasHydrated && Boolean(token);
 
   const rightSlot = useMemo(() => {
+    if (!hasHydrated) {
+      return <div className="h-10 w-10 rounded-full bg-black/5" />;
+    }
+
     if (!isAuthed) {
       return (
         <div className="flex items-center gap-4">
@@ -75,24 +103,28 @@ export function Header() {
 
     return (
       <div className="flex items-center">
-        <div className="h-10 w-10 overflow-hidden rounded-full border border-black/10 bg-black/5">
+        <div className="relative h-10 w-10 overflow-hidden rounded-full border border-black/10 bg-black/5">
           {avatarUrl ? (
             <Image
               src={avatarUrl}
               alt="Avatar"
-              width={40}
-              height={40}
-              className="h-10 w-10 object-cover"
+              fill
+              sizes="40px"
+              className="object-cover"
             />
           ) : (
-            <div className="flex h-10 w-10 items-center justify-center text-xs font-semibold text-black/40">
-              U
-            </div>
+            <Image
+              src="/icons/avatar-placeholder.svg"
+              alt="Avatar"
+              fill
+              sizes="40px"
+              className="object-cover"
+            />
           )}
         </div>
       </div>
     );
-  }, [avatarUrl, isAuthed]);
+  }, [avatarUrl, hasHydrated, isAuthed]);
 
   return (
     <header className="sticky top-0 z-50 bg-white">
@@ -114,11 +146,8 @@ export function Header() {
           {rightSlot}
         </div>
       </div>
-
-      <div className="mx-auto w-full max-w-98.25 px-4 py-6">
-        <div className="flex justify-center">
-          <div className="w-90.25 border-t border-[#D5D7DA]" />
-        </div>
+      <div className="mx-auto w-full max-w-98.25 px-4">
+        <div className="border-t border-[#D5D7DA]" />
       </div>
     </header>
   );

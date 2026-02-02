@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
 
 type SiteLayoutProps = {
@@ -8,9 +9,10 @@ type SiteLayoutProps = {
 
 export default function SiteLayout({ children }: SiteLayoutProps) {
   return (
-    <div className="min-h-dvh bg-background text-foreground">
+    <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <Header />
-      {children}
+      <div className="flex-1">{children}</div>
+      <Footer />
     </div>
   );
 }

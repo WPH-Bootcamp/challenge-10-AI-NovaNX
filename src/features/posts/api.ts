@@ -6,6 +6,11 @@ export type GetRecommendedPostsParams = {
   page?: number;
 };
 
+export type GetMostLikedPostsParams = {
+  limit?: number;
+  page?: number;
+};
+
 export async function getRecommendedPosts(params?: GetRecommendedPostsParams) {
   const limit = params?.limit ?? 10;
   const page = params?.page ?? 1;
@@ -17,6 +22,23 @@ export async function getRecommendedPosts(params?: GetRecommendedPostsParams) {
 
   return fetchAPI<PaginatedResponse<Post>>(
     `/posts/recommended?${searchParams.toString()}`,
+    {
+      cache: "no-store",
+    },
+  );
+}
+
+export async function getMostLikedPosts(params?: GetMostLikedPostsParams) {
+  const limit = params?.limit ?? 10;
+  const page = params?.page ?? 1;
+
+  const searchParams = new URLSearchParams({
+    limit: String(limit),
+    page: String(page),
+  });
+
+  return fetchAPI<PaginatedResponse<Post>>(
+    `/posts/most-liked?${searchParams.toString()}`,
     {
       cache: "no-store",
     },
