@@ -1,7 +1,10 @@
-import Link from "next/link";
-
 import { Container } from "@/components/layout/Container";
-import { getMostLikedPosts, getRecommendedPosts } from "@/features/posts/api";
+import {
+  getMostLikedPosts,
+  getPostCommentsCount,
+  getPostById,
+  getRecommendedPosts,
+} from "@/features/posts/api";
 import { MostLikedSection } from "@/features/posts/components/MostLikedSection";
 import { RecommendedFeed } from "@/features/posts/components/RecommendedFeed";
 
@@ -13,44 +16,40 @@ export default async function HomePage() {
     () => null,
   );
 
-  const mostLiked = await getMostLikedPosts({ limit: 2, page: 1 }).catch(
+  const mostLiked = await getMostLikedPosts({ limit: 20, page: 1 }).catch(
     () => null,
   );
 
-  if (process.env.NODE_ENV !== "production") {
-    console.log(
-      "[home] most-liked ids/likes:",
-      (mostLiked?.data ?? [])
-        .slice(0, 2)
-        .map((p) => ({ id: p.id, likes: p.likes })),
-    );
-  }
+  const mostLikedAccurate = (
+    await Promise.all(
+      (mostLiked?.data ?? []).map(async (post) => {
+        const fresh = await getPostById(post.id).catch(() => null);
+        if (!fresh) return post;
+        return { ...post, likes: fresh.likes, comments: fresh.comments };
+      }),
+    )
+  ).sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
+
+  const topMostLiked = mostLikedAccurate.slice(0, 3);
+  const topMostLikedWithAccurateComments = await Promise.all(
+    topMostLiked.map(async (post) => {
+      const count = await getPostCommentsCount(post.id).catch(
+        () => post.comments,
+      );
+      return {
+        ...post,
+        comments: typeof count === "number" ? count : post.comments,
+      };
+    }),
+  );
 
   return (
     <main>
       <section className="py-6 sm:py-8">
         <Container>
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-black/90">
-                Home
-              </h1>
-              <p className="mt-1 text-sm text-black/60">
-                Example page untuk melihat detail blog.
-              </p>
-            </div>
-
-            <Link
-              href="/detail"
-              className="inline-flex items-center justify-center rounded-xl bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-black/90"
-            >
-              Open Detail
-            </Link>
-          </div>
-
           <RecommendedFeed posts={recommended?.data ?? []} />
           <div className="mt-8">
-            <MostLikedSection posts={mostLiked?.data ?? []} />
+            <MostLikedSection posts={topMostLikedWithAccurateComments} />
           </div>
         </Container>
       </section>

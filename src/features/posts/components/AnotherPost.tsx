@@ -108,8 +108,8 @@ export function AnotherPost({ currentPostId }: Props) {
 
       {status === "no-token" ? (
         <p className="mt-4 text-[15px] leading-relaxed text-black/60">
-          Login dulu untuk menampilkan post acak dari{" "}
-          <span className="font-medium">My Posts</span>.
+          Please log in to view{" "}
+          <span className="font-medium">more posts</span>.
         </p>
       ) : null}
 

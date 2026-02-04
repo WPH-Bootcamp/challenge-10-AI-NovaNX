@@ -182,7 +182,7 @@ export function CommentComposer({ postId, initialCount = 0 }: Props) {
 
         {!token ? (
           <p className="mt-3 text-sm text-black/55">
-            Kamu belum login.{" "}
+            You are not logged in.{" "}
             <Link
               href="/login"
               className="font-medium text-sky-700 hover:underline"

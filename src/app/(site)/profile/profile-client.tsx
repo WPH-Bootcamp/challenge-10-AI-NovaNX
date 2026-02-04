@@ -90,8 +90,13 @@ function PostItem({
 
   return (
     <article className="border-b border-black/10 pb-5 last:border-b-0 last:pb-0">
-      <h3 className="text-[16px] font-semibold leading-snug text-black/90">
-        {post.title}
+      <h3 className="text-[16px] font-bold leading-snug text-black/90">
+        <Link
+          href={`/posts/${post.id}`}
+          className="outline-none hover:underline focus-visible:ring-2 focus-visible:ring-black/10 focus-visible:ring-offset-2"
+        >
+          {post.title}
+        </Link>
       </h3>
 
       {displayTags.length ? (

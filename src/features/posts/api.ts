@@ -145,6 +145,21 @@ export async function getLikesByPost(postId: number) {
   });
 }
 
+export async function getPostCommentsCount(postId: number) {
+  const payload = await fetchAPI<unknown>(`/posts/${postId}/comments`, {
+    cache: "no-store",
+  });
+
+  if (Array.isArray(payload)) return payload.length;
+
+  if (payload && typeof payload === "object") {
+    const maybeData = (payload as { data?: unknown }).data;
+    if (Array.isArray(maybeData)) return maybeData.length;
+  }
+
+  return 0;
+}
+
 export type PostCommentForStats = {
   id: number;
   content: string;

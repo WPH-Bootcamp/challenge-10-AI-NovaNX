@@ -17,6 +17,7 @@ export function Header() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
+  const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const avatarMenuRootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -45,6 +46,32 @@ export function Header() {
       window.removeEventListener("pointerdown", onPointerDown);
     };
   }, [isAvatarMenuOpen]);
+
+  useEffect(() => {
+    if (!isGuestMenuOpen) return;
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setIsGuestMenuOpen(false);
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isGuestMenuOpen]);
+
+  useEffect(() => {
+    if (!isGuestMenuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isGuestMenuOpen]);
+
+  useEffect(() => {
+    queueMicrotask(() => setIsGuestMenuOpen(false));
+  }, [pathname]);
 
   useEffect(() => {
     if (!token) return;
@@ -95,6 +122,7 @@ export function Header() {
   const isWritePost = pathname === "/write-post";
   const isEditPost =
     pathname.startsWith("/posts/") && pathname.endsWith("/edit");
+  const isSearchPage = pathname === "/search";
 
   const [backHref, setBackHref] = useState("/profile");
 
@@ -114,10 +142,28 @@ export function Header() {
     }
 
     if (!isAuthed) {
+      if (isSearchPage) {
+        return (
+          <Link
+            href="/login"
+            aria-label="Login"
+            className="relative h-10 w-10 overflow-hidden rounded-full border border-black/10 bg-black/5 outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-black/10"
+          >
+            <Image
+              src="/icons/avatar-placeholder.svg"
+              alt="Avatar"
+              fill
+              sizes="40px"
+              className="object-cover"
+            />
+          </Link>
+        );
+      }
+
       return (
         <div className="flex items-center gap-4">
-          <button
-            type="button"
+          <Link
+            href="/search"
             aria-label="Search"
             className="rounded-lg p-2 text-black/60 hover:bg-black/5 hover:text-black/80"
           >
@@ -127,10 +173,13 @@ export function Header() {
               width={20}
               height={20}
             />
-          </button>
+          </Link>
           <button
             type="button"
             aria-label="Menu"
+            aria-haspopup="dialog"
+            aria-expanded={isGuestMenuOpen}
+            onClick={() => setIsGuestMenuOpen(true)}
             className="rounded-lg p-2 text-black/60 hover:bg-black/5 hover:text-black/80"
           >
             <Image
@@ -264,61 +313,148 @@ export function Header() {
         </div>
       </div>
     );
-  }, [avatarUrl, hasHydrated, isAuthed, isAvatarMenuOpen, router]);
+  }, [
+    avatarUrl,
+    hasHydrated,
+    isAuthed,
+    isAvatarMenuOpen,
+    isGuestMenuOpen,
+    isSearchPage,
+    router,
+  ]);
 
   return (
-    <header className="sticky top-0 z-50 bg-white">
-      <div className="mx-auto w-full max-w-107.5 px-4 py-3">
-        <div className="flex items-center justify-between">
-          {isWritePost || isEditPost ? (
-            <div className="flex items-center gap-2">
-              <Link
-                href={backHref}
-                aria-label="Back"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-black/70 hover:bg-black/5 hover:text-black/90"
+    <>
+      <header className="sticky top-0 z-50 bg-white">
+        <div className="mx-auto w-full max-w-107.5 px-4 py-3">
+          <div className="flex items-center justify-between">
+            {isWritePost || isEditPost ? (
+              <div className="flex items-center gap-2">
+                <Link
+                  href={backHref}
+                  aria-label="Back"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-black/70 hover:bg-black/5 hover:text-black/90"
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M15 18l-6-6 6-6"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </Link>
+                <span className="text-[16px] font-semibold text-black/90">
+                  {isEditPost ? "Edit Post" : "Write Post"}
+                </span>
+              </div>
+            ) : (
+              <Link href="/home" className="flex items-center gap-2">
+                <Image
+                  src="/icons/logosymbol.svg"
+                  alt="Logo"
+                  width={24}
+                  height={24}
+                  priority
+                />
+                <span className="text-sm font-semibold text-black/90">
+                  Your Logo
+                </span>
+              </Link>
+            )}
+
+            {rightSlot}
+          </div>
+        </div>
+        <div className="mx-auto w-full max-w-107.5 px-4">
+          <div className="border-t border-[#D5D7DA]" />
+        </div>
+      </header>
+
+      {hasHydrated && !isAuthed && isGuestMenuOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Guest menu"
+          className="fixed inset-0 z-100 bg-white"
+        >
+          <div className="mx-auto w-full max-w-107.5 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Image
+                  src="/icons/logosymbol.svg"
+                  alt="Logo"
+                  width={24}
+                  height={24}
+                  priority
+                />
+                <span className="text-sm font-semibold text-black/90">
+                  Your Logo
+                </span>
+              </div>
+
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setIsGuestMenuOpen(false)}
+                className="rounded-lg p-2 text-black/70 hover:bg-black/5 hover:text-black/90"
               >
                 <svg
-                  width="18"
-                  height="18"
+                  width="20"
+                  height="20"
                   viewBox="0 0 24 24"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
                   aria-hidden="true"
                 >
                   <path
-                    d="M15 18l-6-6 6-6"
+                    d="M18 6L6 18"
                     stroke="currentColor"
                     strokeWidth="2"
                     strokeLinecap="round"
-                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M6 6l12 12"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
                   />
                 </svg>
-              </Link>
-              <span className="text-[16px] font-semibold text-black/90">
-                {isEditPost ? "Edit Post" : "Write Post"}
-              </span>
+              </button>
             </div>
-          ) : (
-            <Link href="/home" className="flex items-center gap-2">
-              <Image
-                src="/icons/logosymbol.svg"
-                alt="Logo"
-                width={24}
-                height={24}
-                priority
-              />
-              <span className="text-sm font-semibold text-black/90">
-                Your Logo
-              </span>
-            </Link>
-          )}
+          </div>
 
-          {rightSlot}
+          <div className="mx-auto w-full max-w-107.5 px-4">
+            <div className="border-t border-[#D5D7DA]" />
+          </div>
+
+          <div className="mx-auto flex w-full max-w-107.5 flex-1 flex-col items-center px-4 pt-16">
+            <Link
+              href="/login"
+              className="text-sm font-semibold text-[#2F80ED] underline"
+              onClick={() => setIsGuestMenuOpen(false)}
+            >
+              Login
+            </Link>
+
+            <Link
+              href="/register"
+              onClick={() => setIsGuestMenuOpen(false)}
+              className="mt-6 inline-flex h-12 w-full max-w-65 items-center justify-center rounded-full bg-[#2F80ED] text-sm font-semibold text-white hover:bg-[#2F80ED]/90"
+            >
+              Register
+            </Link>
+          </div>
         </div>
-      </div>
-      <div className="mx-auto w-full max-w-107.5 px-4">
-        <div className="border-t border-[#D5D7DA]" />
-      </div>
-    </header>
+      ) : null}
+    </>
   );
 }

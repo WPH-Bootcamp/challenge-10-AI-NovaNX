@@ -6,7 +6,7 @@ import type { Post } from "@/types/blog";
 export function MostLikedSection({ posts }: { posts: Post[] }) {
   const mostLiked = [...posts]
     .sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0))
-    .slice(0, 2);
+    .slice(0, 3);
 
   if (!mostLiked.length) return null;
 
