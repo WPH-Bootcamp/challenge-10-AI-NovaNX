@@ -21,6 +21,7 @@ import {
 } from "@/features/users/api";
 import type { Post } from "@/types/blog";
 import { ApiError } from "@/lib/api";
+import { StatisticModal } from "@/features/posts/components/StatisticModal";
 
 function looksLikeHtml(input: string) {
   return /<\/?[a-z][\s\S]*>/i.test(input);
@@ -94,6 +95,7 @@ function normalizeTagsForDisplay(tags: string[]) {
 }
 
 function PostItem({ post }: { post: Post }) {
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
   const excerpt = stripHtmlToText(post.content).slice(0, 140);
   const created = formatDateTimeId(post.createdAt);
   const updated = formatDateTimeId(post.updatedAt ?? post.createdAt);
@@ -127,7 +129,7 @@ function PostItem({ post }: { post: Post }) {
           type="button"
           className="text-sky-700 hover:underline"
           onClick={() => {
-            // Not specified in the assignment scope.
+            setIsStatsOpen(true);
           }}
         >
           Statistic
@@ -150,6 +152,16 @@ function PostItem({ post }: { post: Post }) {
           Delete
         </button>
       </div>
+
+      {isStatsOpen ? (
+        <StatisticModal
+          isOpen={isStatsOpen}
+          onClose={() => setIsStatsOpen(false)}
+          postId={post.id}
+          likesCount={post.likes}
+          commentsCount={post.comments}
+        />
+      ) : null}
     </article>
   );
 }
@@ -164,7 +176,9 @@ export default function ProfileClient() {
   const [editName, setEditName] = useState("");
   const [editHeadline, setEditHeadline] = useState("");
   const [editProfileMessage, setEditProfileMessage] = useState("");
-  const [editAvatarPreview, setEditAvatarPreview] = useState<string | null>(null);
+  const [editAvatarPreview, setEditAvatarPreview] = useState<string | null>(
+    null,
+  );
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   const [showCurrent, setShowCurrent] = useState(false);
@@ -216,13 +230,17 @@ export default function ProfileClient() {
         return;
       }
       setPasswordMessage(
-        err instanceof ApiError ? err.message : "Gagal update password.",
+        err instanceof ApiError ? err.message : "Password updating failed.",
       );
     },
   });
 
   const updateProfileMutation = useMutation({
-    mutationFn: async (payload: { name?: string; headline?: string; avatar?: File }) => {
+    mutationFn: async (payload: {
+      name?: string;
+      headline?: string;
+      avatar?: File;
+    }) => {
       if (!token) throw new ApiError("Unauthorized", 401);
       return updateProfile(payload, token);
     },
@@ -238,7 +256,7 @@ export default function ProfileClient() {
         return;
       }
       setEditProfileMessage(
-        err instanceof ApiError ? err.message : "Gagal update profile.",
+        err instanceof ApiError ? err.message : "Profile updating failed.",
       );
     },
   });
@@ -295,7 +313,7 @@ export default function ProfileClient() {
         <section className="py-8">
           <Container>
             <div className="text-sm text-black/60">
-              Kamu belum login. Silakan login dulu.
+              You are not logged in. Please log in first.
             </div>
           </Container>
         </section>
@@ -320,7 +338,7 @@ export default function ProfileClient() {
       <main>
         <section className="py-8">
           <Container>
-            <div className="text-sm text-red-600">Gagal memuat profile.</div>
+            <div className="text-sm text-red-600">Failed to load profile.</div>
           </Container>
         </section>
       </main>
@@ -718,7 +736,11 @@ export default function ProfileClient() {
             <div className="mt-5 flex justify-center">
               <div className="relative h-20 w-20 overflow-hidden rounded-full bg-black/5">
                 <Image
-                  src={editAvatarPreview ?? avatar ?? "/icons/avatar-placeholder.svg"}
+                  src={
+                    editAvatarPreview ??
+                    avatar ??
+                    "/icons/avatar-placeholder.svg"
+                  }
                   alt="Avatar"
                   fill
                   sizes="80px"
@@ -789,7 +811,8 @@ export default function ProfileClient() {
 
                     const previewUrl = URL.createObjectURL(file);
                     setEditAvatarPreview((prev) => {
-                      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+                      if (prev && prev.startsWith("blob:"))
+                        URL.revokeObjectURL(prev);
                       return previewUrl;
                     });
 

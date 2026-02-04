@@ -145,6 +145,19 @@ export async function getLikesByPost(postId: number) {
   });
 }
 
+export type PostCommentForStats = {
+  id: number;
+  content: string;
+  createdAt: string;
+  author: UserSummary;
+};
+
+export async function getPostCommentsForStats(postId: number) {
+  return fetchAPI<PostCommentForStats[]>(`/posts/${postId}/comments`, {
+    cache: "no-store",
+  });
+}
+
 export type GetMyPostsParams = {
   limit?: number;
   page?: number;

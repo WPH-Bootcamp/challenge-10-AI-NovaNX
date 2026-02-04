@@ -27,10 +27,14 @@ export type UpdateProfileRequest = {
   avatar?: File;
 };
 
-export async function updateProfile(payload: UpdateProfileRequest, token: string) {
+export async function updateProfile(
+  payload: UpdateProfileRequest,
+  token: string,
+) {
   const formData = new FormData();
   if (payload.name !== undefined) formData.append("name", payload.name);
-  if (payload.headline !== undefined) formData.append("headline", payload.headline);
+  if (payload.headline !== undefined)
+    formData.append("headline", payload.headline);
   if (payload.avatar) formData.append("avatar", payload.avatar);
 
   return fetchAPI<MyProfile>("/users/profile", {
