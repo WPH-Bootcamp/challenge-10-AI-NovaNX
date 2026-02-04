@@ -180,3 +180,14 @@ export async function getMyPosts(params: GetMyPostsParams, token: string) {
     },
   );
 }
+
+export type DeletePostResponse = {
+  success: boolean;
+};
+
+export async function deletePost(postId: number, token: string) {
+  return fetchAPI<DeletePostResponse>(`/posts/${postId}`, {
+    method: "DELETE",
+    token,
+  });
+}

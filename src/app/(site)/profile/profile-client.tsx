@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -10,7 +10,7 @@ import { Container } from "@/components/layout/Container";
 import { Input } from "@/components/ui/Input";
 import { clearAuthToken } from "@/features/auth/token";
 import { useAuthToken } from "@/features/auth/useAuthToken";
-import { getMyPosts } from "@/features/posts/api";
+import { deletePost, getMyPosts } from "@/features/posts/api";
 import { Badge } from "@/components/ui/Badge";
 import {
   changePassword,
@@ -22,6 +22,8 @@ import {
 import type { Post } from "@/types/blog";
 import { ApiError } from "@/lib/api";
 import { StatisticModal } from "@/features/posts/components/StatisticModal";
+import { DeletePostModal } from "@/features/posts/components/DeletePostModal";
+import type { PaginatedResponse } from "@/types/blog";
 
 function looksLikeHtml(input: string) {
   return /<\/?[a-z][\s\S]*>/i.test(input);
@@ -54,52 +56,37 @@ function formatDateTimeId(iso?: string) {
   }).format(date);
 }
 
-function explodeTag(tag: string): string[] {
-  const normalized = (tag ?? "").trim();
-  if (!normalized) return [];
-
-  const lower = normalized.toLowerCase();
-
-  // Handle common concatenated tags so badges look consistent.
-  // Example: "Programmingfrontend" -> ["Programming", "Frontend"].
-  if (lower === "programmingfrontend") return ["Programming", "Frontend"];
-  if (lower === "frontendprogramming") return ["Frontend", "Programming"];
-
-  return [normalized];
-}
-
-function normalizeTagsForDisplay(tags: string[]) {
-  const flat = tags.flatMap(explodeTag);
+function tagsFromBackend(postTags: unknown): string[] {
+  const raw = Array.isArray(postTags) ? postTags : [];
   const seen = new Set<string>();
   const result: string[] = [];
 
-  for (const t of flat) {
-    const key = t.toLowerCase();
+  for (const t of raw) {
+    const normalized = String(t ?? "").trim();
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    result.push(t);
-  }
-
-  // Match the UI expectation (3 badges). If backend data has fewer tags,
-  // pad with a default tag so the layout stays consistent.
-  const defaults = ["Coding"];
-  for (const d of defaults) {
-    if (result.length >= 3) break;
-    const key = d.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(d);
+    result.push(normalized);
   }
 
   return result;
 }
 
-function PostItem({ post }: { post: Post }) {
+function PostItem({
+  post,
+  onDelete,
+  from,
+}: {
+  post: Post;
+  onDelete: (post: Post) => void;
+  from: string;
+}) {
   const [isStatsOpen, setIsStatsOpen] = useState(false);
   const excerpt = stripHtmlToText(post.content).slice(0, 140);
   const created = formatDateTimeId(post.createdAt);
   const updated = formatDateTimeId(post.updatedAt ?? post.createdAt);
-  const displayTags = normalizeTagsForDisplay(post.tags ?? []);
+  const displayTags = tagsFromBackend(post.tags);
 
   return (
     <article className="border-b border-black/10 pb-5 last:border-b-0 last:pb-0">
@@ -136,7 +123,7 @@ function PostItem({ post }: { post: Post }) {
         </button>
 
         <Link
-          href={`/posts/${post.id}/edit`}
+          href={`/posts/${post.id}/edit?from=${encodeURIComponent(from)}`}
           className="text-sky-700 hover:underline"
         >
           Edit
@@ -146,7 +133,7 @@ function PostItem({ post }: { post: Post }) {
           type="button"
           className="text-rose-600 hover:underline"
           onClick={() => {
-            // Delete endpoint not specified; keep UI only.
+            onDelete(post);
           }}
         >
           Delete
@@ -168,9 +155,19 @@ function PostItem({ post }: { post: Post }) {
 
 export default function ProfileClient() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const token = useAuthToken();
   const [activeTab, setActiveTab] = useState<"posts" | "password">("posts");
+
+  const fromHref = useMemo(() => {
+    const qs = searchParams.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  }, [pathname, searchParams]);
+
+  const [deleteTarget, setDeleteTarget] = useState<Post | null>(null);
+  const [deleteError, setDeleteError] = useState<string>("");
 
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [editName, setEditName] = useState("");
@@ -261,6 +258,41 @@ export default function ProfileClient() {
     },
   });
 
+  const deletePostMutation = useMutation({
+    mutationFn: async (postId: number) => {
+      if (!token) throw new ApiError("Unauthorized", 401);
+      return deletePost(postId, token);
+    },
+    onSuccess: (_res, postId) => {
+      // Optimistic cache update so UI matches immediately.
+      queryClient.setQueryData(
+        ["my-posts", token],
+        (prev: PaginatedResponse<Post> | undefined) => {
+          if (!prev) return prev;
+          const nextData = prev.data.filter((p) => p.id !== postId);
+          return {
+            ...prev,
+            data: nextData,
+            total: Math.max(0, (prev.total ?? nextData.length) - 1),
+          };
+        },
+      );
+
+      queryClient.invalidateQueries({ queryKey: ["my-posts", token] });
+      setDeleteTarget(null);
+      setDeleteError("");
+    },
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 401) {
+        clearAuthToken();
+        router.push("/login");
+        router.refresh();
+        return;
+      }
+      setDeleteError(err instanceof ApiError ? err.message : "Delete failed.");
+    },
+  });
+
   const currentPasswordError = useMemo(() => {
     if (!submittedPassword) return "";
     if (!currentPassword.trim()) return "this field cannot be empty";
@@ -298,6 +330,8 @@ export default function ProfileClient() {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [isEditProfileOpen]);
+
+  // Delete modal handles ESC + scroll lock.
 
   useEffect(() => {
     return () => {
@@ -425,7 +459,11 @@ export default function ProfileClient() {
               {activeTab === "posts" ? (
                 <button
                   type="button"
-                  onClick={() => router.push("/write-post")}
+                  onClick={() =>
+                    router.push(
+                      `/write-post?from=${encodeURIComponent(fromHref)}`,
+                    )
+                  }
                   className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-sky-600 text-sm font-semibold text-white hover:bg-sky-600/90"
                 >
                   <svg
@@ -659,34 +697,147 @@ export default function ProfileClient() {
 
             {activeTab === "posts" ? (
               <div>
-                <div className="text-[16px] font-semibold text-black/90">
-                  {posts.length} Post
-                </div>
+                {myPostsQuery.isLoading ? (
+                  <p className="mt-4 text-sm text-black/50">Loading…</p>
+                ) : null}
 
-                <div className="mt-4 space-y-5">
-                  {myPostsQuery.isLoading ? (
-                    <p className="text-sm text-black/50">Loading…</p>
-                  ) : null}
+                {myPostsQuery.isError ? (
+                  <p className="mt-4 text-sm text-red-600">Gagal memuat post.</p>
+                ) : null}
 
-                  {myPostsQuery.isError ? (
-                    <p className="text-sm text-red-600">Gagal memuat post.</p>
-                  ) : null}
+                {!myPostsQuery.isLoading &&
+                !myPostsQuery.isError &&
+                posts.length === 0 ? (
+                  <div className="mt-10 flex flex-col items-center text-center">
+                    <div className="relative">
+                      <div className="absolute -left-3 -top-3 h-12 w-12 rounded-xl bg-sky-600" />
+                      <div className="relative grid h-[140px] w-[140px] place-items-center rounded-2xl bg-sky-50">
+                        <svg
+                          width="86"
+                          height="86"
+                          viewBox="0 0 96 96"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M26 10h34l16 16v60a6 6 0 0 1-6 6H26a6 6 0 0 1-6-6V16a6 6 0 0 1 6-6Z"
+                            fill="#E0F2FE"
+                            stroke="#0284C7"
+                            strokeWidth="3"
+                          />
+                          <path
+                            d="M60 10v16h16"
+                            fill="#E0F2FE"
+                            stroke="#0284C7"
+                            strokeWidth="3"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M32 44h32"
+                            stroke="#38BDF8"
+                            strokeWidth="4"
+                            strokeLinecap="round"
+                          />
+                          <path
+                            d="M32 56h28"
+                            stroke="#38BDF8"
+                            strokeWidth="4"
+                            strokeLinecap="round"
+                          />
+                          <path
+                            d="M32 68h22"
+                            stroke="#38BDF8"
+                            strokeWidth="4"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </div>
+                    </div>
 
-                  {!myPostsQuery.isLoading &&
-                  !myPostsQuery.isError &&
-                  !posts.length ? (
-                    <p className="text-sm text-black/50">Belum ada post.</p>
-                  ) : null}
+                    <h3 className="mt-6 text-[14px] font-semibold text-black/80">
+                      Your writing journey starts here
+                    </h3>
+                    <p className="mt-2 max-w-[260px] text-[12px] leading-relaxed text-black/45">
+                      No posts yet, but every great writer starts with the first
+                      one.
+                    </p>
 
-                  {posts.map((post) => (
-                    <PostItem key={post.id} post={post} />
-                  ))}
-                </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        router.push(
+                          `/write-post?from=${encodeURIComponent(fromHref)}`,
+                        )
+                      }
+                      className="mt-8 inline-flex h-12 w-[220px] items-center justify-center gap-2 rounded-full bg-sky-600 text-sm font-semibold text-white hover:bg-sky-600/90"
+                    >
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M12 20h9"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5Z"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      Write Post
+                    </button>
+                  </div>
+                ) : null}
+
+                {!myPostsQuery.isLoading &&
+                !myPostsQuery.isError &&
+                posts.length > 0 ? (
+                  <>
+                    <div className="text-[16px] font-semibold text-black/90">
+                      {posts.length} Post
+                    </div>
+
+                    <div className="mt-4 space-y-5">
+                      {posts.map((post) => (
+                        <PostItem
+                          key={post.id}
+                          post={post}
+                          onDelete={(p) => {
+                            setDeleteError("");
+                            setDeleteTarget(p);
+                          }}
+                          from={fromHref}
+                        />
+                      ))}
+                    </div>
+                  </>
+                ) : null}
               </div>
             ) : null}
           </div>
         </Container>
       </section>
+
+      <DeletePostModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          setDeleteError("");
+          deletePostMutation.mutate(deleteTarget.id);
+        }}
+        isPending={deletePostMutation.isPending}
+        error={deleteError}
+      />
 
       {isEditProfileOpen ? (
         <div

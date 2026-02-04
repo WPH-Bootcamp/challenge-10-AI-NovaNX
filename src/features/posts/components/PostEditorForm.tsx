@@ -90,6 +90,65 @@ type Props = {
   initialPost?: Post;
 };
 
+const AVAILABLE_TAGS = ["Programming", "Frontend", "Coding"] as const;
+type AvailableTag = (typeof AVAILABLE_TAGS)[number];
+const CANONICAL_TAG_BY_LOWER = new Map<string, AvailableTag>(
+  AVAILABLE_TAGS.map((t) => [t.toLowerCase(), t]),
+);
+
+function normalizeBackendTagsToChips(rawTags: unknown): string[] {
+  if (!Array.isArray(rawTags)) return [];
+
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const raw of rawTags) {
+    const original = String(raw ?? "").trim();
+    if (!original) continue;
+
+    const lower = original.toLowerCase();
+
+    const direct = CANONICAL_TAG_BY_LOWER.get(lower);
+    if (direct) {
+      const key = direct.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(direct);
+      }
+      continue;
+    }
+
+    // Handle concatenated / combined tags by extracting known tags in order.
+    const extracted = AVAILABLE_TAGS.map((t) => {
+      const idx = lower.indexOf(t.toLowerCase());
+      return { tag: t, idx };
+    })
+      .filter((x) => x.idx >= 0)
+      .sort((a, b) => a.idx - b.idx)
+      .map((x) => x.tag);
+
+    if (extracted.length) {
+      for (const t of extracted) {
+        const key = t.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        result.push(t);
+        if (result.length >= 3) return result;
+      }
+      continue;
+    }
+
+    // Fallback: keep backend tag as-is (shown in edit), user may remove it.
+    const key = lower;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(original);
+    if (result.length >= 3) return result;
+  }
+
+  return result;
+}
+
 export function PostEditorForm({ mode, postId, initialPost }: Props) {
   const toolbarId = useId();
   const fileInputId = useId();
@@ -114,9 +173,38 @@ export function PostEditorForm({ mode, postId, initialPost }: Props) {
     () => initialPost?.imageUrl ?? null,
   );
   const [removeExistingCover, setRemoveExistingCover] = useState(false);
-  const [tagInput, setTagInput] = useState("");
-  const [tags, setTags] = useState<string[]>(() => initialPost?.tags ?? []);
+  const [tags, setTags] = useState<string[]>(() =>
+    normalizeBackendTagsToChips(initialPost?.tags ?? []),
+  );
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  function isEditorDocumentEmpty(editorInstance: Editor) {
+    const json = editorInstance.getJSON() as {
+      type?: string;
+      content?: Array<{
+        type?: string;
+        content?: Array<{ type?: string; text?: string }>;
+      }>;
+    };
+
+    const docContent = json?.content;
+    if (!Array.isArray(docContent) || docContent.length === 0) return true;
+    if (docContent.length !== 1) return false;
+
+    const firstNode = docContent[0];
+    if (firstNode?.type !== "paragraph") return false;
+
+    const paragraphContent = firstNode.content;
+    if (!Array.isArray(paragraphContent) || paragraphContent.length === 0)
+      return true;
+
+    return paragraphContent.every((node) => {
+      if (node?.type !== "text") return false;
+      return !(node.text ?? "").trim();
+    });
+  }
+
+  const [isContentEmpty, setIsContentEmpty] = useState(true);
 
   const REQUIRED_HELPER_TEXT = "this field cannot be empty";
   const [fieldErrors, setFieldErrors] = useState<
@@ -194,14 +282,34 @@ export function PostEditorForm({ mode, postId, initialPost }: Props) {
     },
     onUpdate: ({ editor }) => {
       setHeadingValue(resolveHeadingValue(editor));
+      setIsContentEmpty(isEditorDocumentEmpty(editor));
       if (fieldErrors.content && editor.getText().trim()) {
         clearFieldError("content");
       }
     },
     onCreate: ({ editor }) => {
       setHeadingValue(resolveHeadingValue(editor));
+      setIsContentEmpty(isEditorDocumentEmpty(editor));
     },
   });
+
+  const isInitialState = useMemo(() => {
+    if (isEditing) return false;
+
+    const titleEmpty = !title.trim();
+    const tagsEmpty = tags.length === 0;
+    const coverEmpty = !coverImage && !coverPreviewUrl && !existingCoverUrl;
+
+    return titleEmpty && tagsEmpty && coverEmpty && isContentEmpty;
+  }, [
+    coverImage,
+    coverPreviewUrl,
+    existingCoverUrl,
+    isContentEmpty,
+    isEditing,
+    tags,
+    title,
+  ]);
 
   const createMutation = useMutation({
     mutationFn: async (params: {
@@ -321,32 +429,22 @@ export function PostEditorForm({ mode, postId, initialPost }: Props) {
     editor.chain().focus().unsetLink().run();
   }
 
-  function normalizeTag(input: string) {
-    const trimmed = input.trim();
-    if (!trimmed) return "";
-    return trimmed.startsWith("#") ? trimmed.slice(1).trim() : trimmed;
+  function removeTagAt(index: number) {
+    setSubmitError(null);
+    clearFieldError("tags");
+    setTags((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function addTagsFromRaw(raw: string) {
-    const pieces = raw
-      .split(",")
-      .map((p) => normalizeTag(p))
-      .filter(Boolean);
-
-    if (!pieces.length) return;
-
+  function toggleTag(tag: AvailableTag) {
+    setSubmitError(null);
     clearFieldError("tags");
-
     setTags((prev) => {
-      const existing = new Set(prev.map((t) => t.toLowerCase()));
-      const next = [...prev];
-      for (const piece of pieces) {
-        const key = piece.toLowerCase();
-        if (existing.has(key)) continue;
-        existing.add(key);
-        next.push(piece);
-      }
-      return next;
+      const key = tag.toLowerCase();
+      const existingIndex = prev.findIndex((t) => t.toLowerCase() === key);
+      if (existingIndex >= 0)
+        return prev.filter((_, idx) => idx !== existingIndex);
+      if (prev.length >= 3) return prev;
+      return [...prev, tag];
     });
   }
 
@@ -1073,21 +1171,59 @@ export function PostEditorForm({ mode, postId, initialPost }: Props) {
                     Tags
                   </label>
                   <div className="mt-2">
-                    <Input
-                      placeholder="Enter your tags"
-                      value={tagInput}
-                      onChange={(e) => {
-                        setTagInput(e.target.value);
-                        if (fieldErrors.tags) clearFieldError("tags");
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === ",") {
-                          e.preventDefault();
-                          addTagsFromRaw(tagInput);
-                          setTagInput("");
-                        }
-                      }}
-                    />
+                    <div className="min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 py-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {tags.length === 0 ? (
+                          <span className="text-[12px] text-black/40">
+                            Select tags
+                          </span>
+                        ) : null}
+
+                        {tags.map((tag, index) => (
+                          <span
+                            key={`${tag}-${index}`}
+                            className="inline-flex items-center gap-2 rounded-full bg-black/5 px-3 py-1 text-[12px] font-semibold text-black/70"
+                          >
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => removeTagAt(index)}
+                              className="grid h-4 w-4 place-items-center rounded-full bg-black/10 text-[12px] leading-none text-black/60 hover:bg-black/15"
+                              aria-label={`Remove tag ${tag}`}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {AVAILABLE_TAGS.map((tag) => {
+                        const selected = tags.some(
+                          (t) => t.toLowerCase() === tag.toLowerCase(),
+                        );
+                        const disabled = !selected && tags.length >= 3;
+
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => toggleTag(tag)}
+                            disabled={disabled}
+                            className={
+                              "h-9 rounded-full px-4 text-[12px] font-semibold transition " +
+                              (selected
+                                ? "bg-sky-600 text-white hover:bg-sky-700"
+                                : "border border-black/10 bg-white text-black/70 hover:bg-black/5") +
+                              (disabled ? " cursor-not-allowed opacity-40" : "")
+                            }
+                          >
+                            {tag}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                   {fieldErrors.tags ? (
                     <p className="mt-1 text-xs text-rose-600">
@@ -1112,7 +1248,9 @@ export function PostEditorForm({ mode, postId, initialPost }: Props) {
                       : "Posting..."
                     : isEditing
                       ? "Save"
-                      : "Finish"}
+                      : isInitialState
+                        ? "Finish"
+                        : "Save"}
                 </button>
               </div>
             </div>

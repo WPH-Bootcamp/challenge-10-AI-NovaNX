@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import WritePost from "./write-post";
+import { PostEditorForm } from "@/features/posts/components/PostEditorForm";
 
 export const metadata: Metadata = {
   title: "Write Post",
@@ -12,7 +12,7 @@ export default function WritePostPage() {
     <Suspense
       fallback={<div className="py-6 text-sm text-black/50">Loading…</div>}
     >
-      <WritePost />
+      <PostEditorForm mode="create" />
     </Suspense>
   );
 }

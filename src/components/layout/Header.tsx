@@ -93,6 +93,20 @@ export function Header() {
 
   const isAuthed = hasHydrated && Boolean(token);
   const isWritePost = pathname === "/write-post";
+  const isEditPost =
+    pathname.startsWith("/posts/") && pathname.endsWith("/edit");
+
+  const [backHref, setBackHref] = useState("/profile");
+
+  useEffect(() => {
+    const from = new URLSearchParams(window.location.search).get("from") ?? "";
+    const next =
+      from && from.startsWith("/") && !from.startsWith("//")
+        ? from
+        : "/profile";
+
+    queueMicrotask(() => setBackHref(next));
+  }, [pathname]);
 
   const rightSlot = useMemo(() => {
     if (!hasHydrated) {
@@ -256,10 +270,10 @@ export function Header() {
     <header className="sticky top-0 z-50 bg-white">
       <div className="mx-auto w-full max-w-107.5 px-4 py-3">
         <div className="flex items-center justify-between">
-          {isWritePost ? (
+          {isWritePost || isEditPost ? (
             <div className="flex items-center gap-2">
               <Link
-                href="/home"
+                href={backHref}
                 aria-label="Back"
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-black/70 hover:bg-black/5 hover:text-black/90"
               >
@@ -281,7 +295,7 @@ export function Header() {
                 </svg>
               </Link>
               <span className="text-[16px] font-semibold text-black/90">
-                Write Post
+                {isEditPost ? "Edit Post" : "Write Post"}
               </span>
             </div>
           ) : (
