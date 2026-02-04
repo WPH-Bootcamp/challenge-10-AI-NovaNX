@@ -18,7 +18,7 @@ async function resolveTargetPostId() {
     (p) => (p.title ?? "").trim().toLowerCase() === wanted,
   );
 
-  const candidates = exactMatches.length ? exactMatches : result.data ?? [];
+  const candidates = exactMatches.length ? exactMatches : (result.data ?? []);
   if (!candidates.length) return null;
 
   // Prefer the newest post (createdAt), fallback to highest id.

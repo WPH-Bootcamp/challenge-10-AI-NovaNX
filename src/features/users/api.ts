@@ -20,3 +20,47 @@ export async function getMyProfile(token: string) {
     token,
   });
 }
+
+export type UpdateProfileRequest = {
+  name?: string;
+  headline?: string;
+  avatar?: File;
+};
+
+export async function updateProfile(payload: UpdateProfileRequest, token: string) {
+  const formData = new FormData();
+  if (payload.name !== undefined) formData.append("name", payload.name);
+  if (payload.headline !== undefined) formData.append("headline", payload.headline);
+  if (payload.avatar) formData.append("avatar", payload.avatar);
+
+  return fetchAPI<MyProfile>("/users/profile", {
+    method: "PATCH",
+    token,
+    body: formData,
+  });
+}
+
+export type ChangePasswordRequest = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
+export type ChangePasswordResponse = {
+  success: boolean;
+  message: string;
+};
+
+export async function changePassword(
+  payload: ChangePasswordRequest,
+  token: string,
+) {
+  return fetchAPI<ChangePasswordResponse>("/users/password", {
+    method: "PATCH",
+    token,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}

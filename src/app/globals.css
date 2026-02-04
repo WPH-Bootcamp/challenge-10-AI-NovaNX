@@ -41,3 +41,16 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Hide native password reveal icons (Edge/IE/Chromium variants) */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
+input[type="password"]::-webkit-credentials-auto-fill-button,
+input[type="password"]::-webkit-contacts-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+}

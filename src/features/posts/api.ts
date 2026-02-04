@@ -96,6 +96,42 @@ export async function createPost(params: CreatePostParams, token: string) {
   });
 }
 
+export type UpdatePostParams = {
+  id: number;
+  title?: string;
+  content?: string;
+  tags?: string[];
+  image?: File | null;
+  removeImage?: boolean;
+};
+
+export async function updatePost(params: UpdatePostParams, token: string) {
+  const formData = new FormData();
+
+  if (typeof params.title === "string") formData.append("title", params.title);
+  if (typeof params.content === "string")
+    formData.append("content", params.content);
+
+  if (params.tags) {
+    // Update endpoint expects `tags` as a string (JSON array string or comma-separated).
+    formData.append("tags", JSON.stringify(params.tags));
+  }
+
+  if (params.image) {
+    formData.append("image", params.image);
+  }
+
+  if (params.removeImage) {
+    formData.append("removeImage", "true");
+  }
+
+  return fetchAPI<Post>(`/posts/${params.id}`, {
+    method: "PATCH",
+    body: formData,
+    token,
+  });
+}
+
 export async function toggleLikePost(postId: number, token: string) {
   return fetchAPI<Post>(`/posts/${postId}/like`, {
     method: "POST",
@@ -107,4 +143,27 @@ export async function getLikesByPost(postId: number) {
   return fetchAPI<UserSummary[]>(`/posts/${postId}/likes`, {
     cache: "no-store",
   });
+}
+
+export type GetMyPostsParams = {
+  limit?: number;
+  page?: number;
+};
+
+export async function getMyPosts(params: GetMyPostsParams, token: string) {
+  const limit = params.limit ?? 10;
+  const page = params.page ?? 1;
+
+  const searchParams = new URLSearchParams({
+    limit: String(limit),
+    page: String(page),
+  });
+
+  return fetchAPI<PaginatedResponse<Post>>(
+    `/posts/my-posts?${searchParams.toString()}`,
+    {
+      cache: "no-store",
+      token,
+    },
+  );
 }

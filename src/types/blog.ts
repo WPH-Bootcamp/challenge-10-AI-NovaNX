@@ -15,6 +15,7 @@ export type Post = {
   imageUrl?: string | null;
   author: UserSummary;
   createdAt: string;
+  updatedAt?: string;
   likes: number;
   comments: number;
 };

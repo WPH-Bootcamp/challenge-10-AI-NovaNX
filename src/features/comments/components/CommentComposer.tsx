@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuthToken } from "@/features/auth/useAuthToken";
 import { clearAuthToken } from "@/features/auth/token";
 import { getMyProfile, resolveBackendUrl } from "@/features/users/api";
+import { AnotherPost } from "@/features/posts/components/AnotherPost";
 import {
   addCommentToPost,
   getCommentsByPostId,
@@ -245,6 +246,8 @@ export function CommentComposer({ postId, initialCount = 0 }: Props) {
               See All Comments
             </button>
           ) : null}
+
+          <AnotherPost currentPostId={postId} />
         </div>
       </div>
 

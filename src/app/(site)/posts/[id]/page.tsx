@@ -5,7 +5,7 @@ import Detail from "@/app/(site)/detail";
 import { getPostById } from "@/features/posts/api";
 
 type PageProps = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,8 @@ export const revalidate = 0;
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const id = Number(params.id);
+  const { id: rawId } = await params;
+  const id = Number(rawId);
   if (!Number.isFinite(id)) return { title: "Post not found" };
 
   const post = await getPostById(id).catch(() => null);
@@ -27,7 +28,8 @@ export async function generateMetadata({
 }
 
 export default async function PostDetailPage({ params }: PageProps) {
-  const id = Number(params.id);
+  const { id: rawId } = await params;
+  const id = Number(rawId);
   if (!Number.isFinite(id)) notFound();
 
   const post = await getPostById(id).catch(() => null);

@@ -1,13 +1,24 @@
 "use client";
 
-import { PostEditorForm } from "@/features/posts/components/PostEditorForm";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
-export default function WritePost() {
-  return <PostEditorForm mode="create" />;
-}
+import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
+import TiptapImage from "@tiptap/extension-image";
+import TextAlign from "@tiptap/extension-text-align";
+import Placeholder from "@tiptap/extension-placeholder";
+import { useMutation } from "@tanstack/react-query";
 
-/* Legacy implementation (previous write-post editor) intentionally kept here for reference during refactor.
-   It is commented out so the app uses PostEditorForm as the single source of truth.
+import { Container } from "@/components/layout/Container";
+import { Input } from "@/components/ui/Input";
+import { useAuthToken } from "@/features/auth/useAuthToken";
+import { createPost, updatePost } from "@/features/posts/api";
+import { resolveBackendUrl } from "@/features/users/api";
+import { ApiError } from "@/lib/api";
+import type { Post } from "@/types/blog";
 
 type IconButtonProps = {
   label: string;
@@ -73,70 +84,13 @@ const HEADING_OPTIONS = [
 
 type HeadingValue = (typeof HEADING_OPTIONS)[number]["value"] | "paragraph";
 
-type WritePostFormProps = {
+type Props = {
   mode: "create" | "edit";
   postId?: number;
   initialPost?: Post;
 };
 
-export default function WritePost() {
-  const searchParams = useSearchParams();
-
-  const editingPostIdRaw = searchParams.get("postId") ?? searchParams.get("id");
-  const editingPostId = editingPostIdRaw ? Number(editingPostIdRaw) : null;
-  const isEditing = Boolean(
-    editingPostId && Number.isFinite(editingPostId) && editingPostId > 0,
-  );
-
-  const postQuery = useQuery({
-    queryKey: ["post", editingPostId],
-    queryFn: async () => {
-      if (!editingPostId) throw new Error("Missing postId");
-      return getPostById(editingPostId);
-    },
-    enabled: isEditing,
-    staleTime: 0,
-  });
-
-  if (!isEditing) {
-    return <WritePostForm mode="create" />;
-  }
-
-  if (postQuery.isLoading) {
-    return (
-      <main>
-        <section className="py-6 sm:py-8">
-          <Container>
-            <div className="text-sm text-black/50">Loading post…</div>
-          </Container>
-        </section>
-      </main>
-    );
-  }
-
-  if (postQuery.isError || !postQuery.data || !editingPostId) {
-    return (
-      <main>
-        <section className="py-6 sm:py-8">
-          <Container>
-            <div className="text-sm text-red-600">Gagal memuat post.</div>
-          </Container>
-        </section>
-      </main>
-    );
-  }
-
-  return (
-    <WritePostForm
-      key={editingPostId}
-      mode="edit"
-      postId={editingPostId}
-      initialPost={postQuery.data}
-    />
-  );
-}
-
-function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
+export function PostEditorForm({ mode, postId, initialPost }: Props) {
   const toolbarId = useId();
   const fileInputId = useId();
   const coverInputId = useId();
@@ -163,6 +117,7 @@ function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>(() => initialPost?.tags ?? []);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
   const REQUIRED_HELPER_TEXT = "this field cannot be empty";
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<"title" | "content" | "cover" | "tags", string>>
@@ -202,7 +157,6 @@ function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
   }
 
   const editor = useEditor({
-    // Prevent SSR/hydration mismatches in Next.js
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
@@ -396,72 +350,6 @@ function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
     });
   }
 
-  async function onFinish() {
-    setSubmitError(null);
-    setFieldErrors({});
-    if (!token) {
-      setSubmitError("Kamu harus login dulu sebelum posting.");
-      return;
-    }
-
-    const cleanTitle = title.trim();
-    if (!editor) {
-      setSubmitError("Editor belum siap.");
-      return;
-    }
-
-    const nextErrors: Partial<
-      Record<"title" | "content" | "cover" | "tags", string>
-    > = {};
-
-    if (!cleanTitle) nextErrors.title = REQUIRED_HELPER_TEXT;
-    if (!editor.getText().trim()) nextErrors.content = REQUIRED_HELPER_TEXT;
-    if (!tags.length) nextErrors.tags = REQUIRED_HELPER_TEXT;
-    if (!isEditing && !coverImage) nextErrors.cover = "file not valid";
-
-    if (Object.keys(nextErrors).length > 0) {
-      setFieldErrors(nextErrors);
-      return;
-    }
-
-    try {
-      if (isEditing) {
-        if (!postId) {
-          setSubmitError("Post id tidak valid untuk mode edit.");
-          return;
-        }
-
-        const updated = await updateMutation.mutateAsync({
-          id: postId,
-          title: cleanTitle,
-          content: editor.getHTML(),
-          tags,
-          image: coverImage,
-          removeImage: removeExistingCover,
-        });
-
-        router.push(`/posts/${updated.id}`);
-        router.refresh();
-      } else {
-        const created = await createMutation.mutateAsync({
-          title: cleanTitle,
-          content: editor.getHTML(),
-          tags,
-          image: coverImage as File,
-        });
-
-        router.push(`/posts/${created.id}`);
-        router.refresh();
-      }
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setSubmitError(err.message);
-      } else {
-        setSubmitError("Gagal posting. Coba lagi.");
-      }
-    }
-  }
-
   async function onPickImageFile(file: File) {
     if (!editor) return;
 
@@ -507,11 +395,93 @@ function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
     setRemoveExistingCover(true);
   }
 
+  async function onSubmit() {
+    setSubmitError(null);
+    setFieldErrors({});
+
+    if (!token) {
+      setSubmitError("Kamu harus login dulu sebelum posting.");
+      return;
+    }
+
+    const cleanTitle = title.trim();
+    if (!editor) {
+      setSubmitError("Editor belum siap.");
+      return;
+    }
+
+    const nextErrors: Partial<
+      Record<"title" | "content" | "cover" | "tags", string>
+    > = {};
+
+    if (!cleanTitle) nextErrors.title = REQUIRED_HELPER_TEXT;
+    if (!editor.getText().trim()) nextErrors.content = REQUIRED_HELPER_TEXT;
+    if (!tags.length) nextErrors.tags = REQUIRED_HELPER_TEXT;
+    if (!isEditing && !coverImage) nextErrors.cover = "file not valid";
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
+      return;
+    }
+
+    try {
+      if (isEditing) {
+        if (!postId) {
+          setSubmitError("Post id tidak valid untuk mode edit.");
+          return;
+        }
+
+        const updated = await updateMutation.mutateAsync({
+          id: postId,
+          title: cleanTitle,
+          content: editor.getHTML(),
+          tags,
+          image: coverImage,
+          removeImage: removeExistingCover,
+        });
+
+        const targetId =
+          updated && typeof (updated as { id?: unknown }).id === "number"
+            ? (updated as { id: number }).id
+            : postId;
+
+        router.push(`/posts/${targetId}`);
+        router.refresh();
+        return;
+      }
+
+      const created = await createMutation.mutateAsync({
+        title: cleanTitle,
+        content: editor.getHTML(),
+        tags,
+        image: coverImage as File,
+      });
+
+      router.push(`/posts/${created.id}`);
+      router.refresh();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setSubmitError(err.message);
+      } else {
+        setSubmitError(
+          isEditing ? "Gagal save. Coba lagi." : "Gagal posting. Coba lagi.",
+        );
+      }
+    }
+  }
+
+  const coverPreviewSrc = useMemo(() => {
+    if (coverPreviewUrl) return coverPreviewUrl;
+    if (existingCoverUrl && !removeExistingCover)
+      return resolveBackendUrl(existingCoverUrl);
+    return null;
+  }, [coverPreviewUrl, existingCoverUrl, removeExistingCover]);
+
   return (
     <main>
       <section className="py-6 sm:py-8">
         <Container>
-          <h1 className="sr-only">Write Post</h1>
+          <h1 className="sr-only">{isEditing ? "Edit Post" : "Write Post"}</h1>
 
           <div className="space-y-6">
             <div>
@@ -609,60 +579,16 @@ function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
                     >
                       <SvgIcon>
                         <path
-                          d="M6 7c0-1.7 1.8-3 4-3h4"
+                          d="M4 12h16"
                           stroke="currentColor"
                           strokeWidth="2"
                           strokeLinecap="round"
                         />
                         <path
-                          d="M6 12h12"
+                          d="M10 5h4a3 3 0 0 1 0 6h-4a3 3 0 0 0 0 6h4"
                           stroke="currentColor"
                           strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                        <path
-                          d="M10 20H6"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                        <path
-                          d="M18 17c0 1.7-1.8 3-4 3h-2"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                      </SvgIcon>
-                    </IconButton>
-
-                    <IconButton
-                      label="Italic"
-                      onClick={() =>
-                        editor?.chain().focus().toggleItalic().run()
-                      }
-                      disabled={
-                        !editor?.can().chain().focus().toggleItalic().run()
-                      }
-                      pressed={Boolean(editor?.isActive("italic"))}
-                    >
-                      <SvgIcon>
-                        <path
-                          d="M10 4h8"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                        <path
-                          d="M6 20h8"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                        <path
-                          d="M14 4 10 20"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
+                          strokeLinejoin="round"
                         />
                       </SvgIcon>
                     </IconButton>
@@ -672,17 +598,20 @@ function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
                       onClick={() =>
                         editor?.chain().focus().toggleBulletList().run()
                       }
+                      disabled={
+                        !editor?.can().chain().focus().toggleBulletList().run()
+                      }
                       pressed={Boolean(editor?.isActive("bulletList"))}
                     >
                       <SvgIcon>
                         <path
-                          d="M8 6h13M8 12h13M8 18h13"
+                          d="M9 7h11M9 12h11M9 17h11"
                           stroke="currentColor"
                           strokeWidth="2"
                           strokeLinecap="round"
                         />
                         <path
-                          d="M4 6h.01M4 12h.01M4 18h.01"
+                          d="M5 7h.01M5 12h.01M5 17h.01"
                           stroke="currentColor"
                           strokeWidth="4"
                           strokeLinecap="round"
@@ -695,37 +624,33 @@ function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
                       onClick={() =>
                         editor?.chain().focus().toggleOrderedList().run()
                       }
+                      disabled={
+                        !editor?.can().chain().focus().toggleOrderedList().run()
+                      }
                       pressed={Boolean(editor?.isActive("orderedList"))}
                     >
                       <SvgIcon>
                         <path
-                          d="M9 6h11M9 12h11M9 18h11"
+                          d="M9 7h11M9 12h11M9 17h11"
                           stroke="currentColor"
                           strokeWidth="2"
                           strokeLinecap="round"
                         />
                         <path
-                          d="M4 7V5l-1 1"
+                          d="M4 7h1v3"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d="M4 12h2l-2 3h2"
                           stroke="currentColor"
                           strokeWidth="2"
                           strokeLinecap="round"
                           strokeLinejoin="round"
                         />
                         <path
-                          d="M3 12h2l-2 2h2"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M3 19h2"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                        <path
-                          d="M4 18v2"
+                          d="M4 17h2"
                           stroke="currentColor"
                           strokeWidth="2"
                           strokeLinecap="round"
@@ -733,13 +658,12 @@ function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
                       </SvgIcon>
                     </IconButton>
 
-                    <div className="mx-1 h-7 w-px bg-black/10" />
-
                     <IconButton
                       label="Align left"
                       onClick={() =>
                         editor?.chain().focus().setTextAlign("left").run()
                       }
+                      disabled={!editor}
                       pressed={Boolean(editor?.isActive({ textAlign: "left" }))}
                     >
                       <SvgIcon>
@@ -757,6 +681,7 @@ function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
                       onClick={() =>
                         editor?.chain().focus().setTextAlign("center").run()
                       }
+                      disabled={!editor}
                       pressed={Boolean(
                         editor?.isActive({ textAlign: "center" }),
                       )}
@@ -776,6 +701,7 @@ function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
                       onClick={() =>
                         editor?.chain().focus().setTextAlign("right").run()
                       }
+                      disabled={!editor}
                       pressed={Boolean(
                         editor?.isActive({ textAlign: "right" }),
                       )}
@@ -791,41 +717,20 @@ function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
                     </IconButton>
 
                     <IconButton
-                      label="Justify"
-                      onClick={() =>
-                        editor?.chain().focus().setTextAlign("justify").run()
-                      }
-                      pressed={Boolean(
-                        editor?.isActive({ textAlign: "justify" }),
-                      )}
-                    >
-                      <SvgIcon>
-                        <path
-                          d="M4 6h16M4 10h16M4 14h16M4 18h16"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                      </SvgIcon>
-                    </IconButton>
-
-                    <div className="mx-1 h-7 w-px bg-black/10" />
-
-                    <IconButton
-                      label="Insert/edit link"
+                      label="Set link"
                       onClick={toggleLink}
-                      pressed={Boolean(editor?.isActive("link"))}
                       disabled={!editor}
+                      pressed={Boolean(editor?.isActive("link"))}
                     >
                       <SvgIcon>
                         <path
-                          d="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1"
+                          d="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 0"
                           stroke="currentColor"
                           strokeWidth="2"
                           strokeLinecap="round"
                         />
                         <path
-                          d="M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1"
+                          d="M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7 0"
                           stroke="currentColor"
                           strokeWidth="2"
                           strokeLinecap="round"
@@ -836,7 +741,7 @@ function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
                     <IconButton
                       label="Remove link"
                       onClick={removeLink}
-                      disabled={!editor?.isActive("link")}
+                      disabled={!editor || !editor.isActive("link")}
                     >
                       <SvgIcon>
                         <path
@@ -997,174 +902,164 @@ function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
                     }}
                   />
 
-                  {(() => {
-                    const previewSrc = coverPreviewUrl
-                      ? coverPreviewUrl
-                      : existingCoverUrl && !removeExistingCover
-                        ? resolveBackendUrl(existingCoverUrl)
-                        : null;
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsCoverDragging(true);
+                    }}
+                    onDragLeave={() => setIsCoverDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsCoverDragging(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (!file) return;
+                      onCoverPicked(file);
+                    }}
+                    className={
+                      "mt-2 rounded-2xl border border-dashed p-4 transition " +
+                      (isCoverDragging
+                        ? "border-sky-500 bg-sky-50"
+                        : "border-black/25 bg-white")
+                    }
+                  >
+                    {coverPreviewSrc ? (
+                      <div className="space-y-3">
+                        <div className="relative h-[180px] w-full overflow-hidden rounded-xl bg-black/5">
+                          <Image
+                            src={coverPreviewSrc}
+                            alt="Cover preview"
+                            fill
+                            sizes="(max-width: 768px) 100vw, 640px"
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
 
-                    return (
-                      <div
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          setIsCoverDragging(true);
-                        }}
-                        onDragLeave={() => setIsCoverDragging(false)}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          setIsCoverDragging(false);
-                          const file = e.dataTransfer.files?.[0];
-                          if (!file) return;
-                          onCoverPicked(file);
-                        }}
-                        className={
-                          "mt-2 rounded-2xl border border-dashed p-4 transition " +
-                          (isCoverDragging
-                            ? "border-sky-500 bg-sky-50"
-                            : "border-black/25 bg-white")
-                        }
-                      >
-                        {previewSrc ? (
-                          <div className="space-y-3">
-                            <div className="relative h-45 w-full overflow-hidden rounded-xl bg-black/5">
-                              <Image
-                                src={previewSrc}
-                                alt="Cover preview"
-                                fill
-                                sizes="(max-width: 768px) 100vw, 640px"
-                                className="object-cover"
-                                unoptimized
-                              />
-                            </div>
-
-                            <div className="flex items-center justify-center gap-3">
-                              <button
-                                type="button"
-                                onClick={onChangeCoverImage}
-                                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-4 text-sm font-semibold text-black/75 hover:bg-black/5"
-                              >
-                                <svg
-                                  width="18"
-                                  height="18"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  aria-hidden="true"
-                                >
-                                  <path
-                                    d="M12 16V6"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                  />
-                                  <path
-                                    d="M8.5 9.5 12 6l3.5 3.5"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                  <path
-                                    d="M5 18h14"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                  />
-                                </svg>
-                                Change Image
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={onDeleteCoverImage}
-                                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-4 text-sm font-semibold text-rose-500 hover:bg-rose-50"
-                              >
-                                <svg
-                                  width="18"
-                                  height="18"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  aria-hidden="true"
-                                >
-                                  <path
-                                    d="M6 7h12"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                  />
-                                  <path
-                                    d="M10 7V5h4v2"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                  />
-                                  <path
-                                    d="M8 7l1 14h6l1-14"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                                Delete Image
-                              </button>
-                            </div>
-
-                            <p className="text-center text-xs text-black/45">
-                              PNG or JPG (max. 5mb)
-                            </p>
-                          </div>
-                        ) : (
-                          <label
-                            htmlFor={coverInputId}
-                            className="block cursor-pointer px-2 py-6 text-center"
+                        <div className="flex items-center justify-center gap-3">
+                          <button
+                            type="button"
+                            onClick={onChangeCoverImage}
+                            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-4 text-sm font-semibold text-black/75 hover:bg-black/5"
                           >
-                            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 bg-white text-black/70">
-                              <svg
-                                width="18"
-                                height="18"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg"
-                                aria-hidden="true"
-                              >
-                                <path
-                                  d="M12 16V8"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                />
-                                <path
-                                  d="M8.5 11.5 12 8l3.5 3.5"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                                <path
-                                  d="M20 16.5a4.5 4.5 0 0 0-3.9-4.45A5.5 5.5 0 0 0 5.6 10.2 3.8 3.8 0 0 0 6 17.7"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                />
-                              </svg>
-                            </div>
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M12 16V6"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M8.5 9.5 12 6l3.5 3.5"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                              <path
+                                d="M5 18h14"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                            Change Image
+                          </button>
 
-                            <p className="mt-3 text-sm text-black/60">
-                              <span className="font-medium text-sky-700">
-                                Click to upload
-                              </span>{" "}
-                              <span>or drag and drop</span>
-                            </p>
-                            <p className="mt-1 text-xs text-black/45">
-                              PNG or JPG (max. 5mb)
-                            </p>
-                          </label>
-                        )}
+                          <button
+                            type="button"
+                            onClick={onDeleteCoverImage}
+                            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-4 text-sm font-semibold text-rose-500 hover:bg-rose-50"
+                          >
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M6 7h12"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M10 7V5h4v2"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M8 7l1 14h6l1-14"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                            Delete Image
+                          </button>
+                        </div>
+
+                        <p className="text-center text-xs text-black/45">
+                          PNG or JPG (max. 5mb)
+                        </p>
                       </div>
-                    );
-                  })()}
+                    ) : (
+                      <label
+                        htmlFor={coverInputId}
+                        className="block cursor-pointer px-2 py-6 text-center"
+                      >
+                        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 bg-white text-black/70">
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M12 16V8"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                            <path
+                              d="M8.5 11.5 12 8l3.5 3.5"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <path
+                              d="M20 16.5a4.5 4.5 0 0 0-3.9-4.45A5.5 5.5 0 0 0 5.6 10.2 3.8 3.8 0 0 0 6 17.7"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </div>
+
+                        <p className="mt-3 text-sm text-black/60">
+                          <span className="font-medium text-sky-700">
+                            Click to upload
+                          </span>{" "}
+                          <span>or drag and drop</span>
+                        </p>
+                        <p className="mt-1 text-xs text-black/45">
+                          PNG or JPG (max. 5mb)
+                        </p>
+                      </label>
+                    )}
+                  </div>
 
                   {fieldErrors.cover ? (
                     <p className="mt-1 text-xs text-rose-600">
@@ -1207,7 +1102,7 @@ function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
 
                 <button
                   type="button"
-                  onClick={onFinish}
+                  onClick={onSubmit}
                   disabled={isSubmitting}
                   className="inline-flex h-12 w-full items-center justify-center rounded-full bg-sky-600 text-sm font-semibold text-white transition hover:bg-sky-600/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
@@ -1227,5 +1122,3 @@ function WritePostForm({ mode, postId, initialPost }: WritePostFormProps) {
     </main>
   );
 }
-
-*/
