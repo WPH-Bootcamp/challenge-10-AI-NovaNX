@@ -13,6 +13,24 @@ import { ApiError } from "@/lib/api";
 const FILTER_TAGS = ["Programming", "Frontend", "Coding"] as const;
 const PAGE_SIZE = 5;
 
+function looksLikeHtml(input: string) {
+  return /<\/?[a-z][\s\S]*>/i.test(input);
+}
+
+function stripHtmlToText(input: string) {
+  if (!input) return "";
+  if (!looksLikeHtml(input)) return input;
+
+  // Keep it SSR-safe (client components can still render on the server).
+  // This is a lightweight preview; the Detail page renders full HTML.
+  return input
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function formatDateUTC(iso: string) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
@@ -110,7 +128,7 @@ export function RecommendedFeed({ posts }: { posts: Post[] }) {
   }, [filteredPosts, safePage]);
 
   return (
-    <div className="mx-auto w-full max-w-98.25 px-4">
+    <div className="mx-auto w-full max-w-107.5 px-4">
       <h1 className="text-[18px] font-semibold text-black">
         Recommend For You
       </h1>
@@ -183,7 +201,7 @@ export function RecommendedFeed({ posts }: { posts: Post[] }) {
                 </div>
 
                 <p className="mt-3 line-clamp-3 text-[13px] leading-relaxed text-black/65">
-                  {post.content}
+                  {stripHtmlToText(post.content)}
                 </p>
 
                 <div className="mt-3 flex items-center gap-2 text-[12px] text-black/55">

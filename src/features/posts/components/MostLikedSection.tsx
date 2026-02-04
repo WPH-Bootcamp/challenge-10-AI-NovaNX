@@ -11,7 +11,7 @@ export function MostLikedSection({ posts }: { posts: Post[] }) {
   if (!mostLiked.length) return null;
 
   return (
-    <section className="mx-auto w-full max-w-98.25 px-4">
+    <section className="mx-auto w-full max-w-107.5 px-4">
       <h2 className="text-[18px] font-semibold text-black">Most liked</h2>
 
       <div className="mt-4 border-t border-[#D5D7DA]">

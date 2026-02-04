@@ -9,7 +9,7 @@ export function Container({ children, className }: ContainerProps) {
   return (
     <div
       className={
-        "mx-auto w-full max-w-[1120px] px-4 sm:px-6 lg:px-8 " +
+        "mx-auto w-full max-w-107.5 px-4 " +
         (className ?? "")
       }
     >

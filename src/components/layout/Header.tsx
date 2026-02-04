@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { clearAuthToken } from "@/features/auth/token";
@@ -10,6 +11,7 @@ import { getMyProfile, resolveBackendUrl } from "@/features/users/api";
 import { ApiError } from "@/lib/api";
 
 export function Header() {
+  const pathname = usePathname();
   const token = useAuthToken();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [hasHydrated, setHasHydrated] = useState(false);
@@ -64,6 +66,7 @@ export function Header() {
   }, [token]);
 
   const isAuthed = hasHydrated && Boolean(token);
+  const isWritePost = pathname === "/write-post";
 
   const rightSlot = useMemo(() => {
     if (!hasHydrated) {
@@ -128,25 +131,55 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 bg-white">
-      <div className="mx-auto w-full max-w-98.25 px-4 py-3">
+      <div className="mx-auto w-full max-w-107.5 px-4 py-3">
         <div className="flex items-center justify-between">
-          <Link href="/home" className="flex items-center gap-2">
-            <Image
-              src="/icons/logosymbol.svg"
-              alt="Logo"
-              width={24}
-              height={24}
-              priority
-            />
-            <span className="text-sm font-semibold text-black/90">
-              Your Logo
-            </span>
-          </Link>
+          {isWritePost ? (
+            <div className="flex items-center gap-2">
+              <Link
+                href="/home"
+                aria-label="Back"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-black/70 hover:bg-black/5 hover:text-black/90"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M15 18l-6-6 6-6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </Link>
+              <span className="text-[16px] font-semibold text-black/90">
+                Write Post
+              </span>
+            </div>
+          ) : (
+            <Link href="/home" className="flex items-center gap-2">
+              <Image
+                src="/icons/logosymbol.svg"
+                alt="Logo"
+                width={24}
+                height={24}
+                priority
+              />
+              <span className="text-sm font-semibold text-black/90">
+                Your Logo
+              </span>
+            </Link>
+          )}
 
           {rightSlot}
         </div>
       </div>
-      <div className="mx-auto w-full max-w-98.25 px-4">
+      <div className="mx-auto w-full max-w-107.5 px-4">
         <div className="border-t border-[#D5D7DA]" />
       </div>
     </header>
