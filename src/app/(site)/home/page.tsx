@@ -46,10 +46,15 @@ export default async function HomePage() {
   return (
     <main>
       <section className="py-6 sm:py-8">
-        <Container>
-          <RecommendedFeed posts={recommended?.data ?? []} />
-          <div className="mt-8">
-            <MostLikedSection posts={topMostLikedWithAccurateComments} />
+        <Container className="md:max-w-5xl">
+          <div className="md:grid md:grid-cols-[minmax(0,1fr)_320px] md:gap-10">
+            <div>
+              <RecommendedFeed posts={recommended?.data ?? []} />
+            </div>
+
+            <div className="mt-8 md:mt-0 md:border-l md:border-[#D5D7DA] md:pl-10">
+              <MostLikedSection posts={topMostLikedWithAccurateComments} />
+            </div>
           </div>
         </Container>
       </section>

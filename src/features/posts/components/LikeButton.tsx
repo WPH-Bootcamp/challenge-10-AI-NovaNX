@@ -16,7 +16,7 @@ type Props = {
 
 export function LikeButton({ postId, initialLikes }: Props) {
   const token = useAuthToken();
-  const [likes, setLikes] = useState<number>(initialLikes);
+  const [likes, setLikes] = useState<number>(initialLikes ?? 0);
   const [isLiked, setIsLiked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +44,7 @@ export function LikeButton({ postId, initialLikes }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [postId, token]);
+  }, [postId, token, initialLikes]);
 
   async function onToggleLike() {
     if (!token) {
@@ -57,7 +57,12 @@ export function LikeButton({ postId, initialLikes }: Props) {
 
     try {
       const updatedPost = await toggleLikePost(postId, token);
-      setLikes(updatedPost.likes ?? 0);
+
+      setLikes((prevLikes) => {
+        if (typeof updatedPost.likes === "number") return updatedPost.likes;
+        return isLiked ? Math.max(0, prevLikes - 1) : prevLikes + 1;
+      });
+
       setIsLiked((v) => !v);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {

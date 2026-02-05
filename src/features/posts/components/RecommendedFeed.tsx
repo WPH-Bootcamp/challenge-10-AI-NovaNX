@@ -215,101 +215,217 @@ export function RecommendedFeed({ posts }: { posts: Post[] }) {
   }) {
     const authorName = post.author?.name ?? "Unknown";
     const showAvatarImage = isMyPost;
+    const coverSrc = post.imageUrl || "/images/blog-cover-placeholder.svg";
 
     return (
       <article
         className={(isLastItem ? "" : "border-b border-[#D5D7DA] ") + "py-5"}
       >
-        <h2 className="text-[16px] font-semibold leading-snug text-black">
+        {/* Mobile layout (keep previous default) */}
+        <div className="md:hidden">
+          <h2 className="text-[16px] font-semibold leading-snug text-black">
+            <Link
+              href={`/posts/${post.id}`}
+              className="outline-none focus:ring-2 focus:ring-black/10"
+            >
+              {post.title}
+            </Link>
+          </h2>
+
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(post.tags ?? []).slice(0, 6).map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-[11px] font-medium text-black/60"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+
+          <p className="mt-3 line-clamp-3 text-[13px] leading-relaxed text-black/65">
+            {stripHtmlToText(post.content)}
+          </p>
+
+          <div className="mt-3 flex items-center gap-2 text-[12px] text-black/55">
+            <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border border-black/10 bg-black/5">
+              {showAvatarImage ? (
+                <Image
+                  src={myAvatarUrl ?? "/icons/avatar-placeholder.svg"}
+                  alt="Avatar"
+                  fill
+                  sizes="28px"
+                  className="object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-black/60">
+                  {getInitials(post.author?.name ?? "User")}
+                </div>
+              )}
+            </div>
+            <span className="font-medium text-black/70">{authorName}</span>
+            <span className="text-black/30">•</span>
+            <span>{formatDateUTC(post.createdAt)}</span>
+          </div>
+
+          <div className="mt-3 flex items-center gap-6 text-[12px] text-black/55">
+            <div className="flex items-center gap-1.5">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+                className="text-black/55"
+              >
+                <path
+                  d="M9 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h5v11Z"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M9 11 12.5 3.5A2 2 0 0 1 14.3 2h.2a2 2 0 0 1 2 2.3L15.8 11H20a2 2 0 0 1 2 2.4l-1 6A2 2 0 0 1 19 22H9"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span>{likes}</span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+                className="text-black/55"
+              >
+                <path
+                  d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span>{comments}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop layout (md+ matches the provided example) */}
+        <div className="hidden md:flex md:gap-6">
           <Link
             href={`/posts/${post.id}`}
-            className="outline-none focus:ring-2 focus:ring-black/10"
+            aria-label={post.title}
+            className="relative block h-40 w-72 shrink-0 overflow-hidden rounded-2xl bg-black/5 outline-none focus:ring-2 focus:ring-black/10"
           >
-            {post.title}
+            <Image
+              src={coverSrc}
+              alt="Cover image"
+              fill
+              sizes="288px"
+              className="object-cover"
+            />
           </Link>
-        </h2>
 
-        <div className="mt-2 flex flex-wrap gap-2">
-          {(post.tags ?? []).slice(0, 6).map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-[11px] font-medium text-black/60"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[16px] font-semibold leading-snug text-black">
+              <Link
+                href={`/posts/${post.id}`}
+                className="outline-none focus:ring-2 focus:ring-black/10"
+              >
+                {post.title}
+              </Link>
+            </h2>
 
-        <p className="mt-3 line-clamp-3 text-[13px] leading-relaxed text-black/65">
-          {stripHtmlToText(post.content)}
-        </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(post.tags ?? []).slice(0, 6).map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-[11px] font-medium text-black/60"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
 
-        <div className="mt-3 flex items-center gap-2 text-[12px] text-black/55">
-          <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border border-black/10 bg-black/5">
-            {showAvatarImage ? (
-              <Image
-                src={myAvatarUrl ?? "/icons/avatar-placeholder.svg"}
-                alt="Avatar"
-                fill
-                sizes="28px"
-                className="object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-black/60">
-                {getInitials(post.author?.name ?? "User")}
+            <p className="mt-3 line-clamp-3 text-[13px] leading-relaxed text-black/65">
+              {stripHtmlToText(post.content)}
+            </p>
+
+            <div className="mt-3 flex items-center gap-2 text-[12px] text-black/55">
+              <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border border-black/10 bg-black/5">
+                {showAvatarImage ? (
+                  <Image
+                    src={myAvatarUrl ?? "/icons/avatar-placeholder.svg"}
+                    alt="Avatar"
+                    fill
+                    sizes="28px"
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-black/60">
+                    {getInitials(post.author?.name ?? "User")}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <span className="font-medium text-black/70">{authorName}</span>
-          <span className="text-black/30">•</span>
-          <span>{formatDateUTC(post.createdAt)}</span>
-        </div>
+              <span className="font-medium text-black/70">{authorName}</span>
+              <span className="text-black/30">•</span>
+              <span>{formatDateUTC(post.createdAt)}</span>
+            </div>
 
-        <div className="mt-3 flex items-center gap-6 text-[12px] text-black/55">
-          <div className="flex items-center gap-1.5">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-              className="text-black/55"
-            >
-              <path
-                d="M9 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h5v11Z"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M9 11 12.5 3.5A2 2 0 0 1 14.3 2h.2a2 2 0 0 1 2 2.3L15.8 11H20a2 2 0 0 1 2 2.4l-1 6A2 2 0 0 1 19 22H9"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span>{likes}</span>
-          </div>
+            <div className="mt-3 flex items-center gap-6 text-[12px] text-black/55">
+              <div className="flex items-center gap-1.5">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  className="text-black/55"
+                >
+                  <path
+                    d="M9 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h5v11Z"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M9 11 12.5 3.5A2 2 0 0 1 14.3 2h.2a2 2 0 0 1 2 2.3L15.8 11H20a2 2 0 0 1 2 2.4l-1 6A2 2 0 0 1 19 22H9"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <span>{likes}</span>
+              </div>
 
-          <div className="flex items-center gap-1.5">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-              className="text-black/55"
-            >
-              <path
-                d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span>{comments}</span>
+              <div className="flex items-center gap-1.5">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  className="text-black/55"
+                >
+                  <path
+                    d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <span>{comments}</span>
+              </div>
+            </div>
           </div>
         </div>
       </article>
@@ -317,7 +433,7 @@ export function RecommendedFeed({ posts }: { posts: Post[] }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-107.5 px-4">
+    <div>
       <h1 className="text-[18px] font-semibold text-black">
         Recommend For You
       </h1>
@@ -356,92 +472,183 @@ export function RecommendedFeed({ posts }: { posts: Post[] }) {
       </div>
 
       {orderedPosts.length > PAGE_SIZE ? (
-        <div className="mt-6 border-t border-[#D5D7DA] border-b-[6px] border-b-[#D5D7DA] py-4">
-          <div className="flex items-center justify-center gap-6">
-            <button
-              type="button"
-              disabled={safePage <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="inline-flex items-center gap-2 text-sm font-medium text-black/70 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
+        <>
+          {/* Mobile default pagination (hidden on md+) */}
+          <div className="mt-6 border-t border-[#D5D7DA] border-b-[6px] border-b-[#D5D7DA] py-4 md:hidden">
+            <div className="flex items-center justify-center gap-6">
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="inline-flex items-center gap-2 text-sm font-medium text-black/70 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <path
-                  d="M15 6l-6 6 6 6"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              Previous
-            </button>
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M15 6l-6 6 6 6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Previous
+              </button>
 
-            <div className="flex items-center gap-2">
-              {getPaginationItems(safePage, totalPages).map((item, idx) => {
-                if (item === "…") {
+              <div className="flex items-center gap-2">
+                {getPaginationItems(safePage, totalPages).map((item, idx) => {
+                  if (item === "…") {
+                    return (
+                      <span
+                        key={`ellipsis-${idx}`}
+                        className="px-2 text-sm text-black/40"
+                      >
+                        …
+                      </span>
+                    );
+                  }
+
+                  const isCurrent = item === safePage;
                   return (
-                    <span
-                      key={`ellipsis-${idx}`}
-                      className="px-2 text-sm text-black/40"
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setPage(item)}
+                      aria-current={isCurrent ? "page" : undefined}
+                      className={
+                        "flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium transition " +
+                        (isCurrent
+                          ? "bg-sky-600 text-white"
+                          : "text-black/60 hover:bg-black/5 hover:text-black/80")
+                      }
                     >
-                      …
-                    </span>
+                      {item}
+                    </button>
                   );
-                }
+                })}
+              </div>
 
-                const isCurrent = item === safePage;
-                return (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setPage(item)}
-                    aria-current={isCurrent ? "page" : undefined}
-                    className={
-                      "flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium transition " +
-                      (isCurrent
-                        ? "bg-sky-600 text-white"
-                        : "text-black/60 hover:bg-black/5 hover:text-black/80")
-                    }
-                  >
-                    {item}
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              type="button"
-              disabled={safePage >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="inline-flex items-center gap-2 text-sm font-medium text-black/70 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Next
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="inline-flex items-center gap-2 text-sm font-medium text-black/70 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <path
-                  d="M9 6l6 6-6 6"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
+                Next
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M9 6l6 6-6 6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
-        </div>
+
+          {/* Desktop (md+) pagination (hidden on mobile) */}
+          <div className="mt-6 hidden border-t border-[#D5D7DA] py-6 md:block">
+            <div className="flex items-center justify-center gap-6">
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="inline-flex items-center gap-2 text-sm font-medium text-black/70 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M15 6l-6 6 6 6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Previous
+              </button>
+
+              <div className="flex items-center gap-2">
+                {getPaginationItems(safePage, totalPages).map((item, idx) => {
+                  if (item === "…") {
+                    return (
+                      <span
+                        key={`ellipsis-${idx}`}
+                        className="px-2 text-sm text-black/40"
+                      >
+                        …
+                      </span>
+                    );
+                  }
+
+                  const isCurrent = item === safePage;
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setPage(item)}
+                      aria-current={isCurrent ? "page" : undefined}
+                      className={
+                        "flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium transition " +
+                        (isCurrent
+                          ? "bg-sky-600 text-white"
+                          : "text-black/60 hover:bg-black/5 hover:text-black/80")
+                      }
+                    >
+                      {item}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="inline-flex items-center gap-2 text-sm font-medium text-black/70 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M9 6l6 6-6 6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </>
       ) : null}
     </div>
   );
