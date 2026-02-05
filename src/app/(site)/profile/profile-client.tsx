@@ -158,6 +158,102 @@ function PostItem({
   );
 }
 
+function PostItemDesktop({
+  post,
+  onDelete,
+  from,
+}: {
+  post: Post;
+  onDelete: (post: Post) => void;
+  from: string;
+}) {
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
+  const excerpt = stripHtmlToText(post.content).slice(0, 140);
+  const created = formatDateTimeId(post.createdAt);
+  const updated = formatDateTimeId(post.updatedAt ?? post.createdAt);
+  const displayTags = tagsFromBackend(post.tags);
+  const coverSrc = post.imageUrl
+    ? resolveBackendUrl(post.imageUrl)
+    : "/images/blog-cover-placeholder.svg";
+
+  return (
+    <article className="grid grid-cols-[360px_1fr] gap-8 border-b border-[#D5D7DA] py-8 last:border-b-0">
+      <div className="relative aspect-4/3 overflow-hidden rounded-2xl bg-black/5">
+        <Image
+          src={coverSrc}
+          alt={post.title}
+          fill
+          sizes="360px"
+          className="object-cover"
+        />
+      </div>
+
+      <div className="min-w-0">
+        <h3 className="text-[22px] font-semibold leading-snug tracking-[-0.02em] text-black/90">
+          <Link
+            href={`/posts/${post.id}`}
+            className="outline-none hover:underline focus-visible:ring-2 focus-visible:ring-black/10 focus-visible:ring-offset-2"
+          >
+            {post.title}
+          </Link>
+        </h3>
+
+        {displayTags.length ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {displayTags.slice(0, 6).map((tag) => (
+              <Badge key={tag}>{tag}</Badge>
+            ))}
+          </div>
+        ) : null}
+
+        <p className="mt-4 line-clamp-2 text-[15px] leading-relaxed text-black/70">
+          {excerpt}
+        </p>
+
+        <p className="mt-5 text-[12px] text-black/45">
+          Created {created}
+          {updated ? ` | Last updated ${updated}` : ""}
+        </p>
+
+        <div className="mt-6 flex items-center gap-5 text-[13px] font-medium">
+          <button
+            type="button"
+            className="text-sky-700 hover:underline"
+            onClick={() => setIsStatsOpen(true)}
+          >
+            Statistic
+          </button>
+
+          <Link
+            href={`/posts/${post.id}/edit?from=${encodeURIComponent(from)}`}
+            className="text-sky-700 hover:underline"
+          >
+            Edit
+          </Link>
+
+          <button
+            type="button"
+            className="text-rose-600 hover:underline"
+            onClick={() => onDelete(post)}
+          >
+            Delete
+          </button>
+        </div>
+
+        {isStatsOpen ? (
+          <StatisticModal
+            isOpen={isStatsOpen}
+            onClose={() => setIsStatsOpen(false)}
+            postId={post.id}
+            likesCount={post.likes}
+            commentsCount={post.comments}
+          />
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
 export default function ProfileClient() {
   const router = useRouter();
   const pathname = usePathname();
@@ -389,9 +485,202 @@ export default function ProfileClient() {
   const headline = me.headline ?? "";
   const posts = myPostsQuery.data?.data ?? [];
 
+  const passwordForm = (
+    <form
+      className="mt-5 space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setSubmittedPassword(true);
+        setPasswordMessage("");
+
+        const curr = currentPassword.trim();
+        const next = newPassword.trim();
+        const conf = confirmPassword.trim();
+
+        if (!curr || !next || !conf) return;
+        if (next.length < 8) return;
+        if (next !== conf) return;
+
+        changePasswordMutation.mutate({
+          currentPassword: curr,
+          newPassword: next,
+          confirmPassword: conf,
+        });
+      }}
+    >
+      <div className="space-y-2">
+        <label className="text-[13px] font-semibold text-black/70">
+          Current Password
+        </label>
+        <div className="relative">
+          <Input
+            id="profile-current-password"
+            placeholder="Enter current password"
+            type={showCurrent ? "text" : "password"}
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            className={
+              (currentPasswordError
+                ? "border-rose-500 focus:ring-rose-200 "
+                : "") + "pr-12"
+            }
+          />
+          <button
+            type="button"
+            aria-label={showCurrent ? "Hide password" : "Show password"}
+            onClick={() => setShowCurrent((v) => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-black/40 hover:bg-black/5 hover:text-black/60"
+          >
+            {showCurrent ? (
+              <Image
+                src="/icons/eye.svg"
+                alt="Hide password"
+                width={20}
+                height={20}
+                className="opacity-70"
+              />
+            ) : (
+              <Image
+                src="/icons/eye-off.svg"
+                alt="Show password"
+                width={20}
+                height={20}
+                className="opacity-70"
+              />
+            )}
+          </button>
+        </div>
+        {currentPasswordError ? (
+          <p className="text-xs text-rose-600">{currentPasswordError}</p>
+        ) : null}
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-[13px] font-semibold text-black/70">
+          New Password
+        </label>
+        <div className="relative">
+          <Input
+            placeholder="Enter new password"
+            type={showNew ? "text" : "password"}
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className={
+              (newPasswordError ? "border-rose-500 focus:ring-rose-200 " : "") +
+              "pr-12"
+            }
+          />
+          <button
+            type="button"
+            aria-label={showNew ? "Hide password" : "Show password"}
+            onClick={() => setShowNew((v) => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-black/40 hover:bg-black/5 hover:text-black/60"
+          >
+            {showNew ? (
+              <Image
+                src="/icons/eye.svg"
+                alt="Hide password"
+                width={20}
+                height={20}
+                className="opacity-70"
+              />
+            ) : (
+              <Image
+                src="/icons/eye-off.svg"
+                alt="Show password"
+                width={20}
+                height={20}
+                className="opacity-70"
+              />
+            )}
+          </button>
+        </div>
+        {newPasswordError ? (
+          <p className="text-xs text-rose-600">{newPasswordError}</p>
+        ) : null}
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-[13px] font-semibold text-black/70">
+          Confirm New Password
+        </label>
+        <div className="relative">
+          <Input
+            placeholder="Enter confirm new password"
+            type={showConfirm ? "text" : "password"}
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className={
+              (confirmPasswordError
+                ? "border-rose-500 focus:ring-rose-200 "
+                : "") + "pr-12"
+            }
+          />
+          <button
+            type="button"
+            aria-label={showConfirm ? "Hide password" : "Show password"}
+            onClick={() => setShowConfirm((v) => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-black/40 hover:bg-black/5 hover:text-black/60"
+          >
+            {showConfirm ? (
+              <Image
+                src="/icons/eye.svg"
+                alt="Hide password"
+                width={20}
+                height={20}
+                className="opacity-70"
+              />
+            ) : (
+              <Image
+                src="/icons/eye-off.svg"
+                alt="Show password"
+                width={20}
+                height={20}
+                className="opacity-70"
+              />
+            )}
+          </button>
+        </div>
+        {confirmPasswordError ? (
+          <p className="text-xs text-rose-600">{confirmPasswordError}</p>
+        ) : null}
+      </div>
+
+      {passwordMessage ? (
+        <p
+          className={
+            "text-center text-xs " +
+            (changePasswordMutation.isError
+              ? "text-rose-600"
+              : "text-emerald-700")
+          }
+        >
+          {passwordMessage}
+        </p>
+      ) : null}
+
+      <button
+        type="submit"
+        disabled={changePasswordMutation.isPending}
+        className={
+          "mt-2 h-12 w-full rounded-full bg-sky-600 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(2,132,199,0.25)] transition hover:bg-sky-700 " +
+          (changePasswordMutation.isPending
+            ? "cursor-not-allowed opacity-60"
+            : "")
+        }
+      >
+        {changePasswordMutation.isPending ? "Updating..." : "Update Password"}
+      </button>
+    </form>
+  );
+
   return (
     <main>
-      <section className="py-6 sm:py-8">
+      {/* Mobile layout (<md) */}
+      <section className="py-6 sm:py-8 md:hidden">
         <Container>
           <div className="space-y-5">
             <div className="rounded-2xl border border-black/10 bg-white p-4">
@@ -495,208 +784,7 @@ export default function ProfileClient() {
                   Write Post
                 </button>
               ) : (
-                <form
-                  className="mt-5 space-y-4"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setSubmittedPassword(true);
-                    setPasswordMessage("");
-
-                    const curr = currentPassword.trim();
-                    const next = newPassword.trim();
-                    const conf = confirmPassword.trim();
-
-                    if (!curr || !next || !conf) return;
-                    if (next.length < 8) return;
-                    if (next !== conf) return;
-
-                    changePasswordMutation.mutate({
-                      currentPassword: curr,
-                      newPassword: next,
-                      confirmPassword: conf,
-                    });
-                  }}
-                >
-                  <div className="space-y-2">
-                    <label className="text-[13px] font-semibold text-black/70">
-                      Current Password
-                    </label>
-                    <div className="relative">
-                      <Input
-                        id="profile-current-password"
-                        placeholder="Enter current password"
-                        type={showCurrent ? "text" : "password"}
-                        autoComplete="current-password"
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        className={
-                          (currentPasswordError
-                            ? "border-rose-500 focus:ring-rose-200 "
-                            : "") + "pr-12"
-                        }
-                      />
-                      <button
-                        type="button"
-                        aria-label={
-                          showCurrent ? "Hide password" : "Show password"
-                        }
-                        onClick={() => setShowCurrent((v) => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-black/40 hover:bg-black/5 hover:text-black/60"
-                      >
-                        {showCurrent ? (
-                          <Image
-                            src="/icons/eye.svg"
-                            alt="Hide password"
-                            width={20}
-                            height={20}
-                            className="opacity-70"
-                          />
-                        ) : (
-                          <Image
-                            src="/icons/eye-off.svg"
-                            alt="Show password"
-                            width={20}
-                            height={20}
-                            className="opacity-70"
-                          />
-                        )}
-                      </button>
-                    </div>
-                    {currentPasswordError ? (
-                      <p className="text-xs text-rose-600">
-                        {currentPasswordError}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[13px] font-semibold text-black/70">
-                      New Password
-                    </label>
-                    <div className="relative">
-                      <Input
-                        placeholder="Enter new password"
-                        type={showNew ? "text" : "password"}
-                        autoComplete="new-password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        className={
-                          (newPasswordError
-                            ? "border-rose-500 focus:ring-rose-200 "
-                            : "") + "pr-12"
-                        }
-                      />
-                      <button
-                        type="button"
-                        aria-label={showNew ? "Hide password" : "Show password"}
-                        onClick={() => setShowNew((v) => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-black/40 hover:bg-black/5 hover:text-black/60"
-                      >
-                        {showNew ? (
-                          <Image
-                            src="/icons/eye.svg"
-                            alt="Hide password"
-                            width={20}
-                            height={20}
-                            className="opacity-70"
-                          />
-                        ) : (
-                          <Image
-                            src="/icons/eye-off.svg"
-                            alt="Show password"
-                            width={20}
-                            height={20}
-                            className="opacity-70"
-                          />
-                        )}
-                      </button>
-                    </div>
-                    {newPasswordError ? (
-                      <p className="text-xs text-rose-600">
-                        {newPasswordError}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[13px] font-semibold text-black/70">
-                      Confirm New Password
-                    </label>
-                    <div className="relative">
-                      <Input
-                        placeholder="Enter confirm new password"
-                        type={showConfirm ? "text" : "password"}
-                        autoComplete="new-password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className={
-                          (confirmPasswordError
-                            ? "border-rose-500 focus:ring-rose-200 "
-                            : "") + "pr-12"
-                        }
-                      />
-                      <button
-                        type="button"
-                        aria-label={
-                          showConfirm ? "Hide password" : "Show password"
-                        }
-                        onClick={() => setShowConfirm((v) => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-black/40 hover:bg-black/5 hover:text-black/60"
-                      >
-                        {showConfirm ? (
-                          <Image
-                            src="/icons/eye.svg"
-                            alt="Hide password"
-                            width={20}
-                            height={20}
-                            className="opacity-70"
-                          />
-                        ) : (
-                          <Image
-                            src="/icons/eye-off.svg"
-                            alt="Show password"
-                            width={20}
-                            height={20}
-                            className="opacity-70"
-                          />
-                        )}
-                      </button>
-                    </div>
-                    {confirmPasswordError ? (
-                      <p className="text-xs text-rose-600">
-                        {confirmPasswordError}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  {passwordMessage ? (
-                    <p
-                      className={
-                        "text-center text-xs " +
-                        (changePasswordMutation.isError
-                          ? "text-rose-600"
-                          : "text-emerald-700")
-                      }
-                    >
-                      {passwordMessage}
-                    </p>
-                  ) : null}
-
-                  <button
-                    type="submit"
-                    disabled={changePasswordMutation.isPending}
-                    className={
-                      "mt-2 h-12 w-full rounded-full bg-sky-600 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(2,132,199,0.25)] transition hover:bg-sky-700 " +
-                      (changePasswordMutation.isPending
-                        ? "cursor-not-allowed opacity-60"
-                        : "")
-                    }
-                  >
-                    {changePasswordMutation.isPending
-                      ? "Updating..."
-                      : "Update Password"}
-                  </button>
-                </form>
+                passwordForm
               )}
             </div>
 
@@ -832,6 +920,163 @@ export default function ProfileClient() {
             ) : null}
           </div>
         </Container>
+      </section>
+
+      {/* Desktop layout (md+) */}
+      <section className="hidden py-10 md:block lg:py-14">
+        <div className="mx-auto w-full max-w-5xl px-4">
+          <div className="space-y-8">
+            <div className="mx-auto w-full max-w-3xl rounded-2xl border border-black/10 bg-white px-8 py-7">
+              <div className="flex items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="relative h-16 w-16 overflow-hidden rounded-full border border-black/10 bg-black/5">
+                    <Image
+                      src={avatar ?? "/icons/avatar-placeholder.svg"}
+                      alt="Avatar"
+                      fill
+                      sizes="64px"
+                      className="object-cover"
+                    />
+                  </div>
+
+                  <div className="leading-tight">
+                    <div className="text-[18px] font-semibold text-black/90">
+                      {me.name}
+                    </div>
+                    <div className="mt-1 text-[14px] text-black/55">
+                      {headline || "Frontend Developer"}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="text-[13px] font-semibold text-sky-700 hover:underline"
+                  onClick={() => {
+                    setEditName(me.name ?? "");
+                    setEditHeadline(me.headline ?? "");
+                    setIsEditProfileOpen(true);
+                  }}
+                >
+                  Edit Profile
+                </button>
+              </div>
+            </div>
+
+            <div className="mx-auto w-full max-w-3xl border-b border-black/10">
+              <div className="flex items-center justify-center gap-16">
+                <button
+                  type="button"
+                  className={
+                    "relative -mb-px px-1 py-4 text-[13px] font-semibold " +
+                    (activeTab === "posts" ? "text-sky-700" : "text-black/45")
+                  }
+                  onClick={() => setActiveTab("posts")}
+                >
+                  Your Post
+                  {activeTab === "posts" ? (
+                    <span className="absolute bottom-0 left-0 h-[2px] w-full bg-sky-600" />
+                  ) : null}
+                </button>
+
+                <button
+                  type="button"
+                  className={
+                    "relative -mb-px px-1 py-4 text-[13px] font-semibold " +
+                    (activeTab === "password"
+                      ? "text-sky-700"
+                      : "text-black/45")
+                  }
+                  onClick={() => setActiveTab("password")}
+                >
+                  Change Password
+                  {activeTab === "password" ? (
+                    <span className="absolute bottom-0 left-0 h-[2px] w-full bg-sky-600" />
+                  ) : null}
+                </button>
+              </div>
+            </div>
+
+            {activeTab === "posts" ? (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b border-[#D5D7DA] pb-6">
+                  <div className="text-[26px] font-semibold tracking-[-0.02em] text-black/90">
+                    {posts.length} Post
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      router.push(
+                        `/write-post?from=${encodeURIComponent(fromHref)}`,
+                      )
+                    }
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-sky-600 px-10 text-sm font-semibold text-white hover:bg-sky-600/90"
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M12 20h9"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5Z"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    Write Post
+                  </button>
+                </div>
+
+                {myPostsQuery.isLoading ? (
+                  <p className="text-sm text-black/50">Loading…</p>
+                ) : null}
+
+                {myPostsQuery.isError ? (
+                  <p className="text-sm text-red-600">Gagal memuat post.</p>
+                ) : null}
+
+                {!myPostsQuery.isLoading &&
+                !myPostsQuery.isError &&
+                posts.length === 0 ? (
+                  <div className="pt-10 text-center text-sm text-black/60">
+                    Belum ada post.
+                  </div>
+                ) : null}
+
+                {!myPostsQuery.isLoading &&
+                !myPostsQuery.isError &&
+                posts.length > 0 ? (
+                  <div>
+                    {posts.map((post) => (
+                      <PostItemDesktop
+                        key={post.id}
+                        post={post}
+                        onDelete={(p) => {
+                          setDeleteError("");
+                          setDeleteTarget(p);
+                        }}
+                        from={fromHref}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="mx-auto w-full max-w-md">{passwordForm}</div>
+            )}
+          </div>
+        </div>
       </section>
 
       <DeletePostModal

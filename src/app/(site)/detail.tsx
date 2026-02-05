@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { CommentCountIndicator } from "@/features/comments/components/CommentCountIndicator";
 import { CommentComposer } from "@/features/comments/components/CommentComposer";
 import { LikeButton } from "@/features/posts/components/LikeButton";
+import { resolveBackendUrl } from "@/features/users/api";
 import type { Post } from "@/types/blog";
 
 function formatDateUTC(iso: string) {
@@ -27,7 +28,7 @@ function formatDateUTC(iso: string) {
     "Dec",
   ];
 
-  const day = String(date.getUTCDate()).padStart(2, "0");
+  const day = String(date.getUTCDate());
   const month = months[date.getUTCMonth()] ?? "";
   const year = String(date.getUTCFullYear());
 
@@ -44,13 +45,19 @@ type DetailProps = {
 
 export default function Detail({ post }: DetailProps) {
   const publishedAt = formatDateUTC(post.createdAt);
-  const coverSrc = post.imageUrl || "/images/blog-cover-placeholder.svg";
+  const coverSrc = post.imageUrl
+    ? resolveBackendUrl(post.imageUrl)
+    : "/images/blog-cover-placeholder.svg";
   const authorName = post.author?.name ?? "Unknown";
+  const authorAvatarSrc = post.author?.avatarUrl
+    ? resolveBackendUrl(post.author.avatarUrl)
+    : "/icons/avatar-placeholder.svg";
   const content = post.content ?? "";
 
   return (
     <main>
-      <section className="py-6 sm:py-8">
+      {/* Mobile layout (<md) */}
+      <section className="py-6 sm:py-8 md:hidden">
         <Container>
           <div className="flex items-center gap-3 text-sm text-black/60">
             <Link href="/home" className="hover:text-black">
@@ -75,7 +82,7 @@ export default function Detail({ post }: DetailProps) {
               <div className="mt-6 flex items-center gap-3">
                 <div className="relative h-10 w-10 overflow-hidden rounded-full border border-black/10 bg-black/5">
                   <Image
-                    src="/icons/MyAvatar.png"
+                    src={authorAvatarSrc}
                     alt="Author avatar"
                     fill
                     sizes="40px"
@@ -112,7 +119,7 @@ export default function Detail({ post }: DetailProps) {
                 alt="Cover image"
                 fill
                 priority
-                sizes="(max-width: 430px) 100vw, 430px"
+                sizes="(max-width: 767px) 100vw, 430px"
                 className="object-cover"
               />
             </div>
@@ -133,6 +140,90 @@ export default function Detail({ post }: DetailProps) {
 
           <CommentComposer postId={post.id} initialCount={post.comments ?? 0} />
         </Container>
+      </section>
+
+      {/* Desktop layout (md+) */}
+      <section className="hidden py-10 md:block lg:py-14">
+        <div className="mx-auto w-full max-w-5xl px-4">
+          <article>
+            <div className="mx-auto max-w-3xl">
+              <h1 className="text-center text-[52px] font-semibold leading-[1.1] tracking-[-0.03em] text-black/90 lg:text-[56px]">
+                {post.title}
+              </h1>
+
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                {(post.tags ?? []).map((tag) => (
+                  <Badge key={tag}>{tag}</Badge>
+                ))}
+              </div>
+
+              <div className="mt-7 flex items-center justify-center gap-3">
+                <div className="relative h-10 w-10 overflow-hidden rounded-full border border-black/10 bg-black/5">
+                  <Image
+                    src={authorAvatarSrc}
+                    alt="Author avatar"
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-sm text-black/60">
+                  <span className="font-medium text-black/80">
+                    {authorName}
+                  </span>
+                  <span className="text-black/20">•</span>
+                  <time dateTime={post.createdAt}>{publishedAt}</time>
+                </div>
+              </div>
+
+              <div className="mt-6 h-px w-full bg-[#D5D7DA]" />
+
+              <div className="mt-4 flex items-center gap-10 text-black/60">
+                <LikeButton postId={post.id} initialLikes={post.likes ?? 0} />
+                <CommentCountIndicator
+                  postId={post.id}
+                  initialCount={post.comments ?? 0}
+                />
+              </div>
+
+              <div className="mt-4 h-px w-full bg-[#D5D7DA]" />
+            </div>
+
+            <div className="mx-auto mt-8 w-full max-w-5xl">
+              <div className="relative aspect-16/7 w-full bg-black/5">
+                <Image
+                  src={coverSrc}
+                  alt="Cover image"
+                  fill
+                  priority
+                  sizes="(min-width: 1024px) 1024px, (min-width: 768px) 100vw, 100vw"
+                  className="object-cover"
+                />
+              </div>
+            </div>
+
+            <div className="mx-auto mt-10 max-w-3xl">
+              {looksLikeHtml(content) ? (
+                <div
+                  className="text-base leading-relaxed text-black/70 [&_p]:mt-4 [&_p:first-child]:mt-0 [&_a]:text-sky-700 [&_a]:underline-offset-2 hover:[&_a]:underline"
+                  dangerouslySetInnerHTML={{ __html: content }}
+                />
+              ) : (
+                <div className="text-base leading-relaxed text-black/70">
+                  {content}
+                </div>
+              )}
+            </div>
+          </article>
+
+          <div className="mx-auto mt-10 max-w-3xl">
+            <CommentComposer
+              postId={post.id}
+              initialCount={post.comments ?? 0}
+            />
+          </div>
+        </div>
       </section>
     </main>
   );

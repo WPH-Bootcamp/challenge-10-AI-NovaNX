@@ -186,8 +186,17 @@ export function Header() {
   const isSearchPage =
     pathname === "/search" || pathname.startsWith("/search/");
   const isHomePage = pathname === "/home" || pathname === "/";
+  const isDetailPage = pathname === "/detail";
+  const isPostDetailPage = pathname.startsWith("/posts/") && !isEditPost;
+  const isProfilePage = pathname === "/profile";
   const showAuthedHomeHeader =
-    (isHomePage || isSearchPage) && !isWritePost && !isEditPost;
+    (isHomePage ||
+      isSearchPage ||
+      isDetailPage ||
+      isPostDetailPage ||
+      isProfilePage) &&
+    !isWritePost &&
+    !isEditPost;
   const headerQuery = isSearchPage ? (searchParams.get("q") ?? "") : "";
   const showMobileSearchButton = !isSearchPage && !(isWritePost || isEditPost);
 
@@ -664,6 +673,7 @@ export function Header() {
                     alt="Logo"
                     width={24}
                     height={24}
+                    className="h-6 w-6"
                     priority
                   />
                   <span className="truncate text-sm font-semibold text-black/90">
@@ -721,6 +731,7 @@ export function Header() {
                     alt="Logo"
                     width={24}
                     height={24}
+                    className="h-6 w-6"
                     priority
                   />
                   <span className="truncate text-sm font-semibold text-black/90">
@@ -758,7 +769,11 @@ export function Header() {
                       className="h-11 rounded-2xl pl-12 text-[15px]"
                     />
                   </div>
-                ) : isHomePage || !isAuthed ? (
+                ) : isHomePage ||
+                  isDetailPage ||
+                  isPostDetailPage ||
+                  isProfilePage ||
+                  !isAuthed ? (
                   <Link
                     href="/search"
                     aria-label="Search"
@@ -807,6 +822,7 @@ export function Header() {
                   alt="Logo"
                   width={24}
                   height={24}
+                  className="h-6 w-6"
                   priority
                 />
                 <span className="text-sm font-semibold text-black/90">
