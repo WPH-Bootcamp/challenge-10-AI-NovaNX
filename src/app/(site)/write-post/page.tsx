@@ -16,7 +16,9 @@ export default function WritePostPage() {
             <div className="px-6">Loading…</div>
           </section>
           <section className="hidden py-8 text-sm text-black/50 md:block">
-            <div className="w-full px-6 md:px-10 lg:px-12">Loading…</div>
+            <div className="w-full px-6 md:px-10 lg:px-12">
+              <div className="mx-auto w-full max-w-[734px]">Loading…</div>
+            </div>
           </section>
         </main>
       }
