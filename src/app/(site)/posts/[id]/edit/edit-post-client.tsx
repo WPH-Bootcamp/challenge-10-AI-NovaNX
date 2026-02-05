@@ -35,8 +35,10 @@ export default function EditPostClient({ id }: { id: string }) {
 
         <section className="hidden py-8 md:block">
           <div className="w-full px-6 md:px-10 lg:px-12">
-            <div className="text-sm text-red-600">
-              Post id tidak valid. (id: {JSON.stringify(rawId)})
+            <div className="mx-auto w-full max-w-[734px]">
+              <div className="text-sm text-red-600">
+                Post id tidak valid. (id: {JSON.stringify(rawId)})
+              </div>
             </div>
           </div>
         </section>
@@ -55,7 +57,9 @@ export default function EditPostClient({ id }: { id: string }) {
 
         <section className="hidden py-8 md:block">
           <div className="w-full px-6 md:px-10 lg:px-12">
-            <div className="text-sm text-black/50">Loading post…</div>
+            <div className="mx-auto w-full max-w-[734px]">
+              <div className="text-sm text-black/50">Loading post…</div>
+            </div>
           </div>
         </section>
       </main>
@@ -73,7 +77,9 @@ export default function EditPostClient({ id }: { id: string }) {
 
         <section className="hidden py-8 md:block">
           <div className="w-full px-6 md:px-10 lg:px-12">
-            <div className="text-sm text-red-600">Gagal memuat post.</div>
+            <div className="mx-auto w-full max-w-[734px]">
+              <div className="text-sm text-red-600">Gagal memuat post.</div>
+            </div>
           </div>
         </section>
       </main>

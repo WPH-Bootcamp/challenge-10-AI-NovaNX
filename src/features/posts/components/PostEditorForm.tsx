@@ -1022,13 +1022,18 @@ export function PostEditorForm({ mode, postId, initialPost }: Props) {
               >
                 {coverPreviewSrc ? (
                   <div className="space-y-3">
-                    <div className="relative h-[180px] w-full overflow-hidden rounded-xl bg-black/5">
+                    <div
+                      className={
+                        "relative w-full overflow-hidden rounded-xl bg-black/5 " +
+                        (isMdUp ? "h-[320px]" : "h-[180px]")
+                      }
+                    >
                       <Image
                         src={coverPreviewSrc}
                         alt="Cover preview"
                         fill
-                        sizes="(max-width: 768px) 100vw, 640px"
-                        className="object-cover"
+                        sizes="100vw"
+                        className={isMdUp ? "object-contain" : "object-cover"}
                         unoptimized
                       />
                     </div>
@@ -1260,7 +1265,9 @@ export function PostEditorForm({ mode, postId, initialPost }: Props) {
     return (
       <main className="hidden md:block">
         <section className="py-8">
-          <div className="w-full px-6 md:px-10 lg:px-12">{formContent}</div>
+          <div className="w-full px-6 md:px-10 lg:px-12">
+            <div className="mx-auto w-full max-w-[734px]">{formContent}</div>
+          </div>
         </section>
       </main>
     );
