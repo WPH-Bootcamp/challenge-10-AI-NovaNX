@@ -10,7 +10,16 @@ export const metadata: Metadata = {
 export default function WritePostPage() {
   return (
     <Suspense
-      fallback={<div className="py-6 text-sm text-black/50">Loading…</div>}
+      fallback={
+        <main>
+          <section className="py-6 text-sm text-black/50 md:hidden">
+            <div className="px-6">Loading…</div>
+          </section>
+          <section className="hidden py-8 text-sm text-black/50 md:block">
+            <div className="w-full px-6 md:px-10 lg:px-12">Loading…</div>
+          </section>
+        </main>
+      }
     >
       <PostEditorForm mode="create" />
     </Suspense>
